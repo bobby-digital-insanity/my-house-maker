@@ -26,23 +26,26 @@ const Customize = () => {
   useEffect(() => {
     const loadUser = async () => {
       const { data } = await authService.getSession();
-      if (!data.session) {
-        navigate("/auth");
-        return;
+      if (data.session) {
+        setUser(data.session.user);
+        loadCartCount(data.session.user.id);
+        // Migrate guest cart if exists
+        await cartService.migrateGuestCartToUser(data.session.user.id);
+      } else {
+        // Guest user - load from localStorage
+        loadCartCount();
       }
-      setUser(data.session.user);
-      loadCartCount(data.session.user.id);
       fetchUserLocation();
     };
 
     loadUser();
 
     const subscription = authService.onAuthStateChange((session, user) => {
-      if (!session) {
-        navigate("/auth");
+      setUser(user);
+      if (user) {
+        loadCartCount(user.id);
       } else {
-        setUser(user);
-        if (user) loadCartCount(user.id);
+        loadCartCount();
       }
     });
 
@@ -86,7 +89,7 @@ const Customize = () => {
     setAllRoomTypes([...roomTypes, manCaveRoom]);
   };
 
-  const loadCartCount = async (userId: string) => {
+  const loadCartCount = async (userId?: string) => {
     const { data } = await cartService.getCartItems(userId);
     setCartCount(data?.length || 0);
   };
@@ -99,8 +102,6 @@ const Customize = () => {
   };
 
   const handleAddToCart = async () => {
-    if (!user) return;
-
     const selectedItems = Object.entries(selections).filter(([_, styleId]) => styleId);
     
     if (selectedItems.length === 0) {
@@ -117,17 +118,17 @@ const Customize = () => {
 
         if (room && style) {
           await cartService.addToCart({
-            user_id: user.id,
+            user_id: user?.id || "guest",
             room_type: room.name,
             style: style.name,
             price: style.price,
-          });
+          }, user?.id);
         }
       }
 
       toast.success(`Added ${selectedItems.length} item(s) to cart`);
       setSelections({});
-      loadCartCount(user.id);
+      loadCartCount(user?.id);
       navigate("/cart");
     } catch (error) {
       toast.error("Failed to add items to cart");
@@ -143,10 +144,6 @@ const Customize = () => {
     const style = room?.styles.find((s) => s.id === styleId);
     return sum + (style?.price || 0);
   }, 0);
-
-  if (!user) {
-    return null;
-  }
 
   return (
     <div className="min-h-screen bg-background">

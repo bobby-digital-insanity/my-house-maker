@@ -32,31 +32,32 @@ const AIBuilder = () => {
   useEffect(() => {
     const loadUser = async () => {
       const { data } = await authService.getSession();
-      if (!data.session) {
-        navigate("/auth");
-        return;
+      if (data.session) {
+        setUser(data.session.user);
+        loadCartCount(data.session.user.id);
+      } else {
+        // Guest user
+        loadCartCount();
       }
-      setUser(data.session.user);
-      loadCartCount(data.session.user.id);
     };
 
     loadUser();
 
     const subscription = authService.onAuthStateChange((session, user) => {
-      if (!session) {
-        navigate("/auth");
+      setUser(user);
+      if (user) {
+        loadCartCount(user.id);
       } else {
-        setUser(user);
-        if (user) loadCartCount(user.id);
+        loadCartCount();
       }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, []);
 
-  const loadCartCount = async (userId: string) => {
+  const loadCartCount = async (userId?: string) => {
     const { data } = await cartService.getCartItems(userId);
     setCartCount(data?.length || 0);
   };
@@ -92,39 +93,37 @@ const AIBuilder = () => {
   };
 
   const handleAddToCart = async (recommendation: Recommendation) => {
-    if (!user) return;
-
     try {
       await cartService.addToCart({
-        user_id: user.id,
+        user_id: user?.id || "guest",
         room_type: recommendation.roomType,
         style: recommendation.styleName,
         price: recommendation.price,
-      });
+      }, user?.id);
 
       toast.success("Added to cart!");
-      loadCartCount(user.id);
+      loadCartCount(user?.id);
     } catch (error) {
       toast.error("Failed to add to cart");
     }
   };
 
   const handleAddAllToCart = async () => {
-    if (!user || recommendations.length === 0) return;
+    if (recommendations.length === 0) return;
 
     setLoading(true);
     try {
       for (const rec of recommendations) {
         await cartService.addToCart({
-          user_id: user.id,
+          user_id: user?.id || "guest",
           room_type: rec.roomType,
           style: rec.styleName,
           price: rec.price,
-        });
+        }, user?.id);
       }
 
       toast.success(`Added ${recommendations.length} items to cart!`);
-      loadCartCount(user.id);
+      loadCartCount(user?.id);
       navigate("/cart");
     } catch (error) {
       toast.error("Failed to add items to cart");
@@ -134,10 +133,6 @@ const AIBuilder = () => {
   };
 
   const totalPrice = recommendations.reduce((sum, rec) => sum + rec.price, 0);
-
-  if (!user) {
-    return null;
-  }
 
   return (
     <div className="min-h-screen bg-background">

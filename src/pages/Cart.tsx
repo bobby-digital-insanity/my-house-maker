@@ -24,23 +24,23 @@ const Cart = () => {
   useEffect(() => {
     const loadCart = async () => {
       const { data } = await authService.getSession();
-      if (!data.session) {
-        navigate("/auth");
-        return;
+      if (data.session) {
+        setUser(data.session.user);
+        await fetchCartItems(data.session.user.id);
+      } else {
+        // Guest user
+        await fetchCartItems();
       }
-
-      setUser(data.session.user);
-      await fetchCartItems(data.session.user.id);
     };
 
     loadCart();
 
     const subscription = authService.onAuthStateChange((session, user) => {
-      if (!session) {
-        navigate("/auth");
+      setUser(user);
+      if (user) {
+        fetchCartItems(user.id);
       } else {
-        setUser(user);
-        if (user) fetchCartItems(user.id);
+        fetchCartItems();
       }
     });
 
@@ -49,7 +49,7 @@ const Cart = () => {
     };
   }, [navigate]);
 
-  const fetchCartItems = async (userId: string) => {
+  const fetchCartItems = async (userId?: string) => {
     setLoading(true);
     const { data, error } = await cartService.getCartItems(userId);
     if (error) {
@@ -61,7 +61,7 @@ const Cart = () => {
   };
 
   const handleRemoveItem = async (itemId: string) => {
-    const { error } = await cartService.removeFromCart(itemId);
+    const { error } = await cartService.removeFromCart(itemId, user?.id);
     if (error) {
       toast.error("Failed to remove item");
     } else {
@@ -76,7 +76,7 @@ const Cart = () => {
     navigate("/checkout");
   };
 
-  if (loading || !user) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar user={user} cartCount={0} />

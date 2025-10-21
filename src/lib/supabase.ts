@@ -60,7 +60,22 @@ export interface CartItem {
 }
 
 export const cartService = {
-  async getCartItems(userId: string) {
+  // Guest cart stored in localStorage
+  getGuestCart(): CartItem[] {
+    const cart = localStorage.getItem("guestCart");
+    return cart ? JSON.parse(cart) : [];
+  },
+
+  setGuestCart(items: CartItem[]): void {
+    localStorage.setItem("guestCart", JSON.stringify(items));
+  },
+
+  async getCartItems(userId?: string) {
+    if (!userId) {
+      // Guest user - return localStorage cart
+      return { data: this.getGuestCart(), error: null };
+    }
+    
     const { data, error } = await supabase
       .from("cart_items")
       .select("*")
@@ -68,7 +83,16 @@ export const cartService = {
     return { data, error };
   },
 
-  async addToCart(item: Omit<CartItem, "id">) {
+  async addToCart(item: Omit<CartItem, "id">, userId?: string) {
+    if (!userId) {
+      // Guest user - add to localStorage
+      const cart = this.getGuestCart();
+      const newItem = { ...item, id: crypto.randomUUID(), user_id: "guest" };
+      cart.push(newItem);
+      this.setGuestCart(cart);
+      return { data: newItem, error: null };
+    }
+
     const { data, error } = await supabase
       .from("cart_items")
       .insert([item])
@@ -77,7 +101,15 @@ export const cartService = {
     return { data, error };
   },
 
-  async removeFromCart(itemId: string) {
+  async removeFromCart(itemId: string, userId?: string) {
+    if (!userId) {
+      // Guest user - remove from localStorage
+      const cart = this.getGuestCart();
+      const filtered = cart.filter(item => item.id !== itemId);
+      this.setGuestCart(filtered);
+      return { error: null };
+    }
+
     const { error } = await supabase
       .from("cart_items")
       .delete()
@@ -85,11 +117,34 @@ export const cartService = {
     return { error };
   },
 
-  async clearCart(userId: string) {
+  async clearCart(userId?: string) {
+    if (!userId) {
+      // Guest user - clear localStorage
+      localStorage.removeItem("guestCart");
+      return { error: null };
+    }
+
     const { error } = await supabase
       .from("cart_items")
       .delete()
       .eq("user_id", userId);
     return { error };
+  },
+
+  async migrateGuestCartToUser(userId: string) {
+    // Migrate guest cart to authenticated user
+    const guestCart = this.getGuestCart();
+    if (guestCart.length === 0) return;
+
+    for (const item of guestCart) {
+      await this.addToCart({
+        user_id: userId,
+        room_type: item.room_type,
+        style: item.style,
+        price: item.price,
+      }, userId);
+    }
+
+    localStorage.removeItem("guestCart");
   },
 };
