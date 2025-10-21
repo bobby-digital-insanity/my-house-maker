@@ -5,6 +5,34 @@ import kitchenRetro from "@/assets/kitchen-retro.jpg";
 import kitchenMinimalist from "@/assets/kitchen-minimalist.jpg";
 import kitchenTraditional from "@/assets/kitchen-traditional.jpg";
 
+import livingModern from "@/assets/living-modern.jpg";
+import livingRustic from "@/assets/living-rustic.jpg";
+import livingIndustrial from "@/assets/living-industrial.jpg";
+import livingRetro from "@/assets/living-retro.jpg";
+import livingMinimalist from "@/assets/living-minimalist.jpg";
+import livingTraditional from "@/assets/living-traditional.jpg";
+
+import garageModern from "@/assets/garage-modern.jpg";
+import garageRustic from "@/assets/garage-rustic.jpg";
+import garageIndustrial from "@/assets/garage-industrial.jpg";
+import garageRetro from "@/assets/garage-retro.jpg";
+import garageMinimalist from "@/assets/garage-minimalist.jpg";
+import garageTraditional from "@/assets/garage-traditional.jpg";
+
+import basementModern from "@/assets/basement-modern.jpg";
+import basementRustic from "@/assets/basement-rustic.jpg";
+import basementIndustrial from "@/assets/basement-industrial.jpg";
+import basementRetro from "@/assets/basement-retro.jpg";
+import basementMinimalist from "@/assets/basement-minimalist.jpg";
+import basementTraditional from "@/assets/basement-traditional.jpg";
+
+import entertainmentModern from "@/assets/entertainment-modern.jpg";
+import entertainmentRustic from "@/assets/entertainment-rustic.jpg";
+import entertainmentIndustrial from "@/assets/entertainment-industrial.jpg";
+import entertainmentRetro from "@/assets/entertainment-retro.jpg";
+import entertainmentMinimalist from "@/assets/entertainment-minimalist.jpg";
+import entertainmentTraditional from "@/assets/entertainment-traditional.jpg";
+
 export interface RoomStyle {
   id: string;
   name: string;
@@ -76,42 +104,42 @@ export const roomTypes: RoomType[] = [
         id: "modern",
         name: "Modern",
         description: "Contemporary furniture, open space, clean aesthetics",
-        image: kitchenModern,
+        image: livingModern,
         price: 32000,
       },
       {
         id: "rustic",
         name: "Rustic",
         description: "Natural materials, cozy fireplace, warm textures",
-        image: kitchenRustic,
+        image: livingRustic,
         price: 28000,
       },
       {
         id: "industrial",
         name: "Industrial",
         description: "Raw materials, exposed elements, urban style",
-        image: kitchenIndustrial,
+        image: livingIndustrial,
         price: 30000,
       },
       {
         id: "retro",
         name: "60's Retro",
         description: "Vintage furniture, bold patterns, nostalgic vibe",
-        image: kitchenRetro,
+        image: livingRetro,
         price: 26000,
       },
       {
         id: "minimalist",
         name: "Minimalist",
         description: "Essential furniture, neutral palette, spacious feel",
-        image: kitchenMinimalist,
+        image: livingMinimalist,
         price: 29000,
       },
       {
         id: "traditional",
         name: "Traditional",
         description: "Classic furniture, elegant details, formal layout",
-        image: kitchenTraditional,
+        image: livingTraditional,
         price: 35000,
       },
     ],
@@ -124,42 +152,42 @@ export const roomTypes: RoomType[] = [
         id: "modern",
         name: "Modern",
         description: "Smart systems, LED lighting, organized storage",
-        image: kitchenModern,
+        image: garageModern,
         price: 18000,
       },
       {
         id: "rustic",
         name: "Rustic",
         description: "Wood finish, vintage tools display, workshop feel",
-        image: kitchenRustic,
+        image: garageRustic,
         price: 15000,
       },
       {
         id: "industrial",
         name: "Industrial",
         description: "Heavy-duty shelving, metal finishes, functional layout",
-        image: kitchenIndustrial,
+        image: garageIndustrial,
         price: 16000,
       },
       {
         id: "retro",
         name: "60's Retro",
         description: "Classic car theme, vintage signage, nostalgic decor",
-        image: kitchenRetro,
+        image: garageRetro,
         price: 14000,
       },
       {
         id: "minimalist",
         name: "Minimalist",
         description: "Clean storage, minimal clutter, efficient design",
-        image: kitchenMinimalist,
+        image: garageMinimalist,
         price: 15500,
       },
       {
         id: "traditional",
         name: "Traditional",
         description: "Classic workbench, organized tools, timeless setup",
-        image: kitchenTraditional,
+        image: garageTraditional,
         price: 17000,
       },
     ],
@@ -172,42 +200,42 @@ export const roomTypes: RoomType[] = [
         id: "modern",
         name: "Modern",
         description: "Home theater, gaming zone, contemporary finish",
-        image: kitchenModern,
+        image: basementModern,
         price: 35000,
       },
       {
         id: "rustic",
         name: "Rustic",
         description: "Man cave, wood paneling, comfortable lounge",
-        image: kitchenRustic,
+        image: basementRustic,
         price: 30000,
       },
       {
         id: "industrial",
         name: "Industrial",
         description: "Exposed ceiling, concrete floors, urban bar setup",
-        image: kitchenIndustrial,
+        image: basementIndustrial,
         price: 32000,
       },
       {
         id: "retro",
         name: "60's Retro",
         description: "Vintage arcade, nostalgic memorabilia, fun atmosphere",
-        image: kitchenRetro,
+        image: basementRetro,
         price: 28000,
       },
       {
         id: "minimalist",
         name: "Minimalist",
         description: "Multi-purpose space, clean design, flexible layout",
-        image: kitchenMinimalist,
+        image: basementMinimalist,
         price: 31000,
       },
       {
         id: "traditional",
         name: "Traditional",
         description: "Classic rec room, wood finish, family gathering space",
-        image: kitchenTraditional,
+        image: basementTraditional,
         price: 36000,
       },
     ],
@@ -220,42 +248,42 @@ export const roomTypes: RoomType[] = [
         id: "modern",
         name: "Modern",
         description: "State-of-art AV system, comfortable seating, ambient lighting",
-        image: kitchenModern,
+        image: entertainmentModern,
         price: 40000,
       },
       {
         id: "rustic",
         name: "Rustic",
         description: "Cozy theater, wood accents, warm atmosphere",
-        image: kitchenRustic,
+        image: entertainmentRustic,
         price: 35000,
       },
       {
         id: "industrial",
         name: "Industrial",
         description: "Urban cinema, exposed elements, modern technology",
-        image: kitchenIndustrial,
+        image: entertainmentIndustrial,
         price: 38000,
       },
       {
         id: "retro",
         name: "60's Retro",
         description: "Vintage movie palace, nostalgic decor, classic feel",
-        image: kitchenRetro,
+        image: entertainmentRetro,
         price: 33000,
       },
       {
         id: "minimalist",
         name: "Minimalist",
         description: "Clean theater setup, focus on screen, minimal distractions",
-        image: kitchenMinimalist,
+        image: entertainmentMinimalist,
         price: 36000,
       },
       {
         id: "traditional",
         name: "Traditional",
         description: "Elegant home cinema, luxurious seating, classic styling",
-        image: kitchenTraditional,
+        image: entertainmentTraditional,
         price: 42000,
       },
     ],
