@@ -26,12 +26,12 @@ import basementRetro from "@/assets/basement-retro.jpg";
 import basementMinimalist from "@/assets/basement-minimalist.jpg";
 import basementTraditional from "@/assets/basement-traditional.jpg";
 
-import entertainmentModern from "@/assets/entertainment-modern.jpg";
-import entertainmentRustic from "@/assets/entertainment-rustic.jpg";
-import entertainmentIndustrial from "@/assets/entertainment-industrial.jpg";
-import entertainmentRetro from "@/assets/entertainment-retro.jpg";
-import entertainmentMinimalist from "@/assets/entertainment-minimalist.jpg";
-import entertainmentTraditional from "@/assets/entertainment-traditional.jpg";
+import officeLumber from "@/assets/office-lumber.jpg";
+import officeTrader from "@/assets/office-trader.jpg";
+import officeEngineer from "@/assets/office-engineer.jpg";
+import officeExecutive from "@/assets/office-executive.jpg";
+import officeCreative from "@/assets/office-creative.jpg";
+import officeTelemarketer from "@/assets/office-telemarketer.jpg";
 
 import neighborsRetired from "@/assets/neighbors-retired.jpg";
 import neighborsYoung from "@/assets/neighbors-young.jpg";
@@ -262,50 +262,50 @@ export const roomTypes: RoomType[] = [
     ],
   },
   {
-    id: "entertainment",
-    name: "Entertainment Room",
+    id: "home-office",
+    name: "Home Office",
     styles: [
       {
-        id: "modern",
-        name: "Modern",
-        description: "State-of-art AV system, comfortable seating, ambient lighting",
-        image: entertainmentModern,
-        price: 40000,
-      },
-      {
-        id: "rustic",
-        name: "Rustic",
-        description: "Cozy theater, wood accents, warm atmosphere",
-        image: entertainmentRustic,
-        price: 35000,
-      },
-      {
-        id: "industrial",
-        name: "Industrial",
-        description: "Urban cinema, exposed elements, modern technology",
-        image: entertainmentIndustrial,
+        id: "lumber",
+        name: "Lumber Baron",
+        description: "Rich wood paneling, trophy heads, executive power vibes",
+        image: officeLumber,
         price: 38000,
       },
       {
-        id: "retro",
-        name: "60's Retro",
-        description: "Vintage movie palace, nostalgic decor, classic feel",
-        image: entertainmentRetro,
+        id: "trader",
+        name: "Day Trader",
+        description: "Multiple monitors, stock charts, high-tech trading setup",
+        image: officeTrader,
+        price: 42000,
+      },
+      {
+        id: "engineer",
+        name: "Software Solutions Engineer",
+        description: "Minimalist desk, ergonomic chair, clean tech aesthetic",
+        image: officeEngineer,
+        price: 35000,
+      },
+      {
+        id: "executive",
+        name: "Executive Suite",
+        description: "Mahogany desk, leather chair, corporate prestige",
+        image: officeExecutive,
+        price: 45000,
+      },
+      {
+        id: "creative",
+        name: "Creative Studio",
+        description: "Colorful inspiration, design sketches, artistic workspace",
+        image: officeCreative,
         price: 33000,
       },
       {
-        id: "minimalist",
-        name: "Minimalist",
-        description: "Clean theater setup, focus on screen, minimal distractions",
-        image: entertainmentMinimalist,
-        price: 36000,
-      },
-      {
-        id: "traditional",
-        name: "Traditional",
-        description: "Elegant home cinema, luxurious seating, classic styling",
-        image: entertainmentTraditional,
-        price: 42000,
+        id: "telemarketer",
+        name: "Telemarketer Dungeon",
+        description: "Basement cubicle, flickering lights, existential dread included",
+        image: officeTelemarketer,
+        price: 5000,
       },
     ],
   },
