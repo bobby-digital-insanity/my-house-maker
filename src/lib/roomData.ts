@@ -33,6 +33,27 @@ import entertainmentRetro from "@/assets/entertainment-retro.jpg";
 import entertainmentMinimalist from "@/assets/entertainment-minimalist.jpg";
 import entertainmentTraditional from "@/assets/entertainment-traditional.jpg";
 
+import neighborsRetired from "@/assets/neighbors-retired.jpg";
+import neighborsYoung from "@/assets/neighbors-young.jpg";
+import neighborsSingle from "@/assets/neighbors-single.jpg";
+import neighborsFrat from "@/assets/neighbors-frat.jpg";
+import neighborsAirbnb from "@/assets/neighbors-airbnb.jpg";
+import neighborsCats from "@/assets/neighbors-cats.jpg";
+
+import weatherSunny from "@/assets/weather-sunny.jpg";
+import weatherCloudy from "@/assets/weather-cloudy.jpg";
+import weatherRainy from "@/assets/weather-rainy.jpg";
+import weatherHeatwave from "@/assets/weather-heatwave.jpg";
+import weatherArctic from "@/assets/weather-arctic.jpg";
+import weatherSharknado from "@/assets/weather-sharknado.jpg";
+
+import sceneryForest from "@/assets/scenery-forest.jpg";
+import sceneryMountain from "@/assets/scenery-mountain.jpg";
+import sceneryDesert from "@/assets/scenery-desert.jpg";
+import sceneryBeach from "@/assets/scenery-beach.jpg";
+import sceneryCountryside from "@/assets/scenery-countryside.jpg";
+import sceneryVolcano from "@/assets/scenery-volcano.jpg";
+
 export interface RoomStyle {
   id: string;
   name: string;
@@ -285,6 +306,150 @@ export const roomTypes: RoomType[] = [
         description: "Elegant home cinema, luxurious seating, classic styling",
         image: entertainmentTraditional,
         price: 42000,
+      },
+    ],
+  },
+  {
+    id: "neighbors",
+    name: "Neighbors",
+    styles: [
+      {
+        id: "retired",
+        name: "Retired Couple",
+        description: "Peaceful, well-maintained, friendly wave guarantee",
+        image: neighborsRetired,
+        price: 5000,
+      },
+      {
+        id: "young",
+        name: "Young Couple",
+        description: "Modern, energetic, weekend BBQ invitations",
+        image: neighborsYoung,
+        price: 6000,
+      },
+      {
+        id: "single",
+        name: "Single Professional",
+        description: "Quiet, respectful, perfect for privacy",
+        image: neighborsSingle,
+        price: 5500,
+      },
+      {
+        id: "frat",
+        name: "Frat House",
+        description: "Lively parties, loud music, questionable decisions",
+        image: neighborsFrat,
+        price: 2000,
+      },
+      {
+        id: "airbnb",
+        name: "Airbnb Rental",
+        description: "Rotating guests, unpredictable atmosphere, tourist vibes",
+        image: neighborsAirbnb,
+        price: 4000,
+      },
+      {
+        id: "cats",
+        name: "Cat Collector",
+        description: "Dozens of felines, endless entertainment, unique aroma",
+        image: neighborsCats,
+        price: 3000,
+      },
+    ],
+  },
+  {
+    id: "weather",
+    name: "Weather",
+    styles: [
+      {
+        id: "sunny",
+        name: "Sunny",
+        description: "Perfect blue skies, warm sunshine, outdoor paradise",
+        image: weatherSunny,
+        price: 8000,
+      },
+      {
+        id: "cloudy",
+        name: "Cloudy",
+        description: "Overcast skies, diffused lighting, comfortable atmosphere",
+        image: weatherCloudy,
+        price: 5000,
+      },
+      {
+        id: "rainy",
+        name: "Rainy",
+        description: "Gentle rainfall, cozy vibes, perfect for indoor activities",
+        image: weatherRainy,
+        price: 6000,
+      },
+      {
+        id: "heatwave",
+        name: "Heat Wave",
+        description: "Scorching temperatures, intense sun, AC essential",
+        image: weatherHeatwave,
+        price: 4000,
+      },
+      {
+        id: "arctic",
+        name: "Arctic",
+        description: "Heavy snow, freezing cold, winter wonderland",
+        image: weatherArctic,
+        price: 7000,
+      },
+      {
+        id: "sharknado",
+        name: "Sharknado",
+        description: "Flying sharks, extreme chaos, insurance nightmare",
+        image: weatherSharknado,
+        price: 1000,
+      },
+    ],
+  },
+  {
+    id: "scenery",
+    name: "Scenery",
+    styles: [
+      {
+        id: "forest",
+        name: "Forest",
+        description: "Lush trees, natural beauty, peaceful woodland setting",
+        image: sceneryForest,
+        price: 12000,
+      },
+      {
+        id: "mountain",
+        name: "Mountain",
+        description: "Majestic peaks, breathtaking views, alpine paradise",
+        image: sceneryMountain,
+        price: 15000,
+      },
+      {
+        id: "desert",
+        name: "Desert",
+        description: "Sand dunes, cacti, stunning southwestern landscape",
+        image: sceneryDesert,
+        price: 10000,
+      },
+      {
+        id: "beach",
+        name: "Beach",
+        description: "Ocean views, sandy shores, tropical paradise",
+        image: sceneryBeach,
+        price: 18000,
+      },
+      {
+        id: "countryside",
+        name: "Countryside",
+        description: "Rolling hills, pastoral charm, peaceful rural setting",
+        image: sceneryCountryside,
+        price: 11000,
+      },
+      {
+        id: "volcano",
+        name: "Active Volcano",
+        description: "Lava flows, dramatic eruptions, adventure of a lifetime",
+        image: sceneryVolcano,
+        price: 3000,
       },
     ],
   },
