@@ -10,7 +10,7 @@ import { manCaveTeams } from "@/lib/manCaveData";
 import { supabase } from "@/integrations/supabase/client";
 import { authService, cartService } from "@/lib/supabase";
 import { toast } from "sonner";
-import { ShoppingCart } from "lucide-react";
+import { ShoppingCart, Sparkles } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 import type { RoomType } from "@/lib/roomData";
 
@@ -154,7 +154,19 @@ const Customize = () => {
       
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold mb-2">Build Your Dream Home</h1>
+          <div className="flex items-center justify-center gap-4 mb-4">
+            <h1 className="text-4xl font-bold">Build Your Dream Home</h1>
+            <Button
+              onClick={() => navigate("/ai-builder")}
+              variant="default"
+              size="lg"
+              className="gap-2 animate-pulse"
+            >
+              <Sparkles className="h-5 w-5" />
+              Build with AI
+              <Badge variant="secondary" className="ml-1">NEW</Badge>
+            </Button>
+          </div>
           <p className="text-muted-foreground text-lg">
             Choose styles for each room to create your perfect custom home
           </p>
