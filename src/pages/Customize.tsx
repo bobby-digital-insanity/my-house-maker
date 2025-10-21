@@ -2,13 +2,17 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import RoomCard from "@/components/RoomCard";
 import Navbar from "@/components/Navbar";
 import { roomTypes } from "@/lib/roomData";
+import { manCaveTeams } from "@/lib/manCaveData";
+import { supabase } from "@/integrations/supabase/client";
 import { authService, cartService } from "@/lib/supabase";
 import { toast } from "sonner";
 import { ShoppingCart } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
+import type { RoomType } from "@/lib/roomData";
 
 const Customize = () => {
   const navigate = useNavigate();
@@ -16,6 +20,8 @@ const Customize = () => {
   const [selections, setSelections] = useState<Record<string, string>>({});
   const [cartCount, setCartCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [userTeam, setUserTeam] = useState<string>("bruins");
+  const [allRoomTypes, setAllRoomTypes] = useState<RoomType[]>(roomTypes);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -26,6 +32,7 @@ const Customize = () => {
       }
       setUser(data.session.user);
       loadCartCount(data.session.user.id);
+      fetchUserLocation();
     };
 
     loadUser();
@@ -43,6 +50,41 @@ const Customize = () => {
       subscription.unsubscribe();
     };
   }, [navigate]);
+
+  const fetchUserLocation = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('get-location');
+      if (!error && data?.team) {
+        setUserTeam(data.team);
+        updateManCaveRoom(data.team);
+      }
+    } catch (error) {
+      console.error('Failed to fetch location:', error);
+      // Default to Bruins if location fetch fails
+      updateManCaveRoom('bruins');
+    }
+  };
+
+  const updateManCaveRoom = (teamId: string) => {
+    const team = manCaveTeams[teamId];
+    if (!team) return;
+
+    const manCaveRoom: RoomType = {
+      id: "man-cave",
+      name: "Man Cave",
+      styles: [
+        {
+          id: teamId,
+          name: `${team.fullName} Fan Cave`,
+          description: `Ultimate ${team.fullName} fan cave with team colors, memorabilia, large screen TV, and premium seating. Perfect for game day!`,
+          image: team.image,
+          price: 55000,
+        },
+      ],
+    };
+
+    setAllRoomTypes([...roomTypes, manCaveRoom]);
+  };
 
   const loadCartCount = async (userId: string) => {
     const { data } = await cartService.getCartItems(userId);
@@ -70,7 +112,7 @@ const Customize = () => {
 
     try {
       for (const [roomId, styleId] of selectedItems) {
-        const room = roomTypes.find((r) => r.id === roomId);
+        const room = allRoomTypes.find((r) => r.id === roomId);
         const style = room?.styles.find((s) => s.id === styleId);
 
         if (room && style) {
@@ -97,7 +139,7 @@ const Customize = () => {
   const selectedCount = Object.values(selections).filter(Boolean).length;
   const totalPrice = Object.entries(selections).reduce((sum, [roomId, styleId]) => {
     if (!styleId) return sum;
-    const room = roomTypes.find((r) => r.id === roomId);
+    const room = allRoomTypes.find((r) => r.id === roomId);
     const style = room?.styles.find((s) => s.id === styleId);
     return sum + (style?.price || 0);
   }, 0);
@@ -118,15 +160,23 @@ const Customize = () => {
           </p>
         </div>
 
-        <Tabs defaultValue={roomTypes[0].id} className="w-full">
+        <Tabs defaultValue={allRoomTypes[0].id} className="w-full">
           <TabsList className="w-full flex flex-wrap justify-center gap-2 h-auto bg-muted/50 p-2 mb-8">
-            {roomTypes.map((room) => (
+            {allRoomTypes.map((room) => (
               <TabsTrigger
                 key={room.id}
                 value={room.id}
-                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground relative"
               >
                 {room.name}
+                {room.id === "man-cave" && (
+                  <Badge 
+                    variant="destructive" 
+                    className="ml-2 animate-pulse"
+                  >
+                    NEW
+                  </Badge>
+                )}
                 {selections[room.id] && (
                   <span className="ml-2 h-2 w-2 rounded-full bg-accent" />
                 )}
@@ -134,9 +184,16 @@ const Customize = () => {
             ))}
           </TabsList>
 
-          {roomTypes.map((room) => (
+          {allRoomTypes.map((room) => (
             <TabsContent key={room.id} value={room.id} className="mt-6">
-              <h2 className="text-2xl font-semibold mb-6">{room.name} Styles</h2>
+              <div className="flex items-center gap-3 mb-6">
+                <h2 className="text-2xl font-semibold">{room.name} Styles</h2>
+                {room.id === "man-cave" && (
+                  <Badge variant="outline" className="text-xs">
+                    🏒 Personalized for your location!
+                  </Badge>
+                )}
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {room.styles.map((style) => (
                   <RoomCard
