@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { vibe } = await req.json();
+    const { vibe, model = "google/gemini-2.5-flash" } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
@@ -60,7 +60,7 @@ Recommend 4-6 selections from different categories that best match their vibe.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: model,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: `My ideal home vibe: ${vibe}` }

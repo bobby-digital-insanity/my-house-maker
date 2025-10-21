@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import Navbar from "@/components/Navbar";
 import { supabase } from "@/integrations/supabase/client";
 import { authService, cartService } from "@/lib/supabase";
@@ -23,6 +25,7 @@ const AIBuilder = () => {
   const [user, setUser] = useState<User | null>(null);
   const [cartCount, setCartCount] = useState(0);
   const [vibe, setVibe] = useState("");
+  const [model, setModel] = useState("google/gemini-2.5-flash");
   const [loading, setLoading] = useState(false);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
 
@@ -69,7 +72,7 @@ const AIBuilder = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke('ai-home-recommendations', {
-        body: { vibe }
+        body: { vibe, model }
       });
 
       if (error) throw error;
@@ -160,6 +163,22 @@ const AIBuilder = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="model-select">AI Model</Label>
+              <Select value={model} onValueChange={setModel} disabled={loading}>
+                <SelectTrigger id="model-select">
+                  <SelectValue placeholder="Select AI model" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="google/gemini-2.5-flash">Gemini 2.5 Flash (Recommended)</SelectItem>
+                  <SelectItem value="google/gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
+                  <SelectItem value="google/gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</SelectItem>
+                  <SelectItem value="openai/gpt-5">GPT-5</SelectItem>
+                  <SelectItem value="openai/gpt-5-mini">GPT-5 Mini</SelectItem>
+                  <SelectItem value="openai/gpt-5-nano">GPT-5 Nano</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Textarea
               placeholder="E.g., 'I want a cozy, rustic mountain retreat with a modern touch' or 'Tech-forward minimalist space perfect for remote work'"
               value={vibe}
