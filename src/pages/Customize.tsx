@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+// add in LaunchDarkly SDK
+import { useFlags} from 'launchdarkly-react-client-sdk';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +18,8 @@ import type { RoomType } from "@/lib/roomData";
 
 const Customize = () => {
   const navigate = useNavigate();
+  // useFlags is used to get the flags from the LaunchDarkly SDK
+  const flags = useFlags();
   const [user, setUser] = useState<User | null>(null);
   const [selections, setSelections] = useState<Record<string, string>>({});
   const [cartCount, setCartCount] = useState(0);
@@ -146,23 +150,26 @@ const Customize = () => {
   }, 0);
 
   return (
+
     <div className="min-h-screen bg-background">
       <Navbar user={user} cartCount={cartCount} />
-      
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-4 mb-4">
             <h1 className="text-4xl font-bold">Build Your Dream Home</h1>
-            <Button
-              onClick={() => navigate("/ai-builder")}
-              variant="default"
-              size="lg"
-              className="gap-2 animate-pulse"
-            >
-              <Sparkles className="h-5 w-5" />
-              Build with AI
-              <Badge variant="secondary" className="ml-1">NEW</Badge>
-            </Button>
+            {/* if the buildWithAi flag is true, show the AI builder button */}
+            {flags.buildWithAi && (
+              <Button
+                onClick={() => navigate("/ai-builder")}
+                variant="default"
+                size="lg"
+                className="gap-2 animate-pulse"
+              >
+                <Sparkles className="h-5 w-5" />
+                Build with AI
+                <Badge variant="secondary" className="ml-1">NEW</Badge>
+              </Button>
+            )}
           </div>
           <p className="text-muted-foreground text-lg">
             Choose styles for each room to create your perfect custom home
