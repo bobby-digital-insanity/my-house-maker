@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 // add in LaunchDarkly SDK
-import { useFlags} from 'launchdarkly-react-client-sdk';
+import { useFlags, useLDClient } from 'launchdarkly-react-client-sdk';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,8 @@ const Customize = () => {
   const navigate = useNavigate();
   // useFlags is used to get the flags from the LaunchDarkly SDK
   const flags = useFlags();
+  // useLDClient is used to get the LaunchDarkly client
+  const ldClient = useLDClient();  // Add this import
   const [user, setUser] = useState<User | null>(null);
   const [selections, setSelections] = useState<Record<string, string>>({});
   const [cartCount, setCartCount] = useState(0);
@@ -57,6 +59,27 @@ const Customize = () => {
       subscription.unsubscribe();
     };
   }, [navigate]);
+
+  // useEffect is used to listen for flag changes
+  useEffect(() => {
+    if (ldClient) {
+      const handleFlagChange = (settings) => {
+        console.log('flags changed:', settings);
+        // Get the current flag value using the client's variation method
+        const buildWithAiValue = ldClient.variation('buildWithAi', false);
+        console.log('New buildWithAi value:', buildWithAiValue);
+      };
+
+      // Listen for flag changes
+      ldClient.on('change', handleFlagChange);
+
+      // Cleanup listener when component unmounts
+      return () => {
+        ldClient.off('change', handleFlagChange);
+      };
+    }
+  }, [ldClient]);
+    
 
   const fetchUserLocation = async () => {
     try {
