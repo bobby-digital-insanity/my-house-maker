@@ -3,9 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Home, ShoppingCart, LogOut, User } from "lucide-react";
 import { authService } from "@/lib/supabase";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 interface NavbarProps {
-  user: any;
+  user: SupabaseUser | null;
   cartCount?: number;
 }
 
@@ -20,6 +30,12 @@ const Navbar = ({ user, cartCount = 0 }: NavbarProps) => {
       toast.success("Signed out successfully");
       navigate("/auth");
     }
+  };
+
+  const getUserInitials = (email: string | undefined) => {
+    if (!email) return "U";
+    const parts = email.split("@")[0];
+    return parts.length >= 2 ? parts.substring(0, 2).toUpperCase() : parts[0].toUpperCase();
   };
 
   return (
@@ -46,9 +62,32 @@ const Navbar = ({ user, cartCount = 0 }: NavbarProps) => {
                   )}
                 </Button>
               </Link>
-              <Button variant="ghost" size="icon" onClick={handleSignOut}>
-                <LogOut className="h-5 w-5" />
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback>{getUserInitials(user.email)}</AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {user.email?.split('@')[0]}
+                      </p>
+                      <p className="text-xs leading-none text-muted-foreground">
+                        {user.email}
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut} className="text-red-600 focus:text-red-600">
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </>
           ) : (
             <Link to="/auth">
