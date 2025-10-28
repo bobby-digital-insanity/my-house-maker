@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useLDClient } from 'launchdarkly-react-client-sdk';
+import { useLDClient} from 'launchdarkly-react-client-sdk';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { authService, cartService } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Sparkles, Loader2, ShoppingCart } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
+import { roomTypes } from "@/lib/roomData";
 
 interface Recommendation {
   roomType: string;
@@ -20,6 +21,103 @@ interface Recommendation {
   reason: string;
   price: number;
 }
+
+// Helper function to get image URL based on room type and style
+const getRoomImage = (roomType: string, styleName: string): string | null => {
+  // Normalize room type names (handle variations)
+  const roomTypeMap: Record<string, string> = {
+    'kitchen': 'kitchen',
+    'living room': 'living-room',
+    'living-room': 'living-room',
+    'living': 'living-room',
+    'livingroom': 'living-room',
+    'garage': 'garage',
+    'basement': 'basement',
+    'office': 'home-office',
+    'home office': 'home-office',
+    'home-office': 'home-office',
+    'homeoffice': 'home-office',
+    'neighbors': 'neighbors',
+    'neighbor': 'neighbors',
+    'weather': 'weather',
+    'scenery': 'scenery',
+  };
+
+  // Normalize style names (handle variations)
+  const styleNameMap: Record<string, string> = {
+    'modern': 'modern',
+    'rustic': 'rustic',
+    'industrial': 'industrial',
+    '60\'s retro': 'retro',
+    'retro': 'retro',
+    'minimalist': 'minimalist',
+    'traditional': 'traditional',
+    'lumber baron': 'lumber',
+    'lumber': 'lumber',
+    'day trader': 'trader',
+    'trader': 'trader',
+    'software solutions engineer': 'engineer',
+    'engineer': 'engineer',
+    'executive suite': 'executive',
+    'executive': 'executive',
+    'creative studio': 'creative',
+    'creative': 'creative',
+    'telemarketer dungeon': 'telemarketer',
+    'telemarketer': 'telemarketer',
+    'retired couple': 'retired',
+    'retired': 'retired',
+    'young couple': 'young',
+    'young': 'young',
+    'single professional': 'single',
+    'single': 'single',
+    'frat house': 'frat',
+    'frat': 'frat',
+    'airbnb rental': 'airbnb',
+    'airbnb': 'airbnb',
+    'cat collector': 'cats',
+    'cats': 'cats',
+    'sunny': 'sunny',
+    'cloudy': 'cloudy',
+    'rainy': 'rainy',
+    'heat wave': 'heatwave',
+    'heatwave': 'heatwave',
+    'arctic': 'arctic',
+    'sharknado': 'sharknado',
+    'forest': 'forest',
+    'mountain': 'mountain',
+    'desert': 'desert',
+    'beach': 'beach',
+    'countryside': 'countryside',
+    'active volcano': 'volcano',
+    'volcano': 'volcano',
+  };
+
+  // Normalize inputs to lowercase
+  const normalizedRoomTypeKey = roomType.toLowerCase().trim();
+  const normalizedStyleKey = styleName.toLowerCase().trim();
+
+  const normalizedRoomType = roomTypeMap[normalizedRoomTypeKey];
+  const normalizedStyle = styleNameMap[normalizedStyleKey];
+
+  if (!normalizedRoomType || !normalizedStyle) {
+    console.warn(`Could not find image for roomType: "${roomType}" (normalized: "${normalizedRoomTypeKey}"), styleName: "${styleName}" (normalized: "${normalizedStyleKey}")`);
+    return null;
+  }
+
+  const roomData = roomTypes.find(rt => rt.id === normalizedRoomType);
+  if (!roomData) {
+    console.warn(`Could not find room data for: ${normalizedRoomType}`);
+    return null;
+  }
+
+  const styleData = roomData.styles.find(s => s.id === normalizedStyle);
+  if (!styleData) {
+    console.warn(`Could not find style data for: ${normalizedStyle} in room: ${normalizedRoomType}`);
+    return null;
+  }
+
+  return styleData.image;
+};
 
 const AIBuilder = () => {
   const navigate = useNavigate();
@@ -30,6 +128,7 @@ const AIBuilder = () => {
   const [model, setModel] = useState("google/gemini-2.5-flash");
   const [loading, setLoading] = useState(false);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Track AIBuilder page load time
   useEffect(() => {
@@ -90,11 +189,34 @@ const AIBuilder = () => {
 
     setLoading(true);
     setRecommendations([]);
+    setErrorMessage(""); // Clear any previous error
 
     // Track when AI generation starts
     const startTime = Date.now();
 
     try {
+      // Fake error for non-recommended model
+      if (model === "google/gemini-2.5-pro") {
+        // Simulate network delay for fake error
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        const fakeErrorMessage = "Error: API quota exceeded. This model has reached its request limit. Please try again later or use the recommended model.";
+        setErrorMessage(fakeErrorMessage);
+        toast.error("Failed to generate recommendations");
+        
+        // Track failed AI generation event
+        if (ldClient) {
+          const responseTime = Date.now() - startTime;
+          ldClient.track('ai-recommendations-failed', {
+            model: model,
+            responseTime: responseTime,
+            fakeError: true,
+          });
+          console.log('❌ Fake error triggered for non-recommended model');
+        }
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke('ai-home-recommendations', {
         body: { vibe, model }
       });
@@ -211,17 +333,20 @@ const AIBuilder = () => {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="model-select">AI Model</Label>
-              <Select value={model} onValueChange={setModel} disabled={loading}>
+              <Select 
+                value={model} 
+                onValueChange={(newModel) => {
+                  setModel(newModel);
+                  setErrorMessage(""); // Clear error when model changes
+                }} 
+                disabled={loading}
+              >
                 <SelectTrigger id="model-select">
                   <SelectValue placeholder="Select AI model" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="google/gemini-2.5-flash">Gemini 2.5 Flash (Recommended)</SelectItem>
                   <SelectItem value="google/gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
-                  <SelectItem value="google/gemini-2.5-flash-lite">Gemini 2.5 Flash Lite</SelectItem>
-                  <SelectItem value="openai/gpt-5">GPT-5</SelectItem>
-                  <SelectItem value="openai/gpt-5-mini">GPT-5 Mini</SelectItem>
-                  <SelectItem value="openai/gpt-5-nano">GPT-5 Nano</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -232,6 +357,13 @@ const AIBuilder = () => {
               className="min-h-[120px]"
               disabled={loading}
             />
+            {errorMessage && (
+              <div className="rounded-md bg-destructive/15 border border-destructive/50 p-4">
+                <p className="text-sm font-medium text-destructive">
+                  {errorMessage}
+                </p>
+              </div>
+            )}
             <Button 
               onClick={handleGenerate} 
               disabled={loading || !vibe.trim()}
@@ -264,32 +396,46 @@ const AIBuilder = () => {
             </div>
 
             <div className="grid gap-4">
-              {recommendations.map((rec, index) => (
-                <Card key={index} className="overflow-hidden">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <h3 className="text-xl font-semibold">{rec.roomType}</h3>
-                          <Badge variant="outline">{rec.styleName}</Badge>
+              {recommendations.map((rec, index) => {
+                const imageUrl = getRoomImage(rec.roomType, rec.styleName);
+                return (
+                  <Card key={index} className="overflow-hidden">
+                    <div className="flex flex-col md:flex-row">
+                      {imageUrl && (
+                        <div className="relative w-full md:w-64 h-48 md:h-auto overflow-hidden">
+                          <img
+                            src={imageUrl}
+                            alt={`${rec.roomType} - ${rec.styleName}`}
+                            className="object-cover w-full h-full"
+                          />
                         </div>
-                        <p className="text-muted-foreground mb-3">{rec.reason}</p>
-                        <p className="text-lg font-bold text-primary">
-                          ${rec.price.toLocaleString()}
-                        </p>
-                      </div>
-                      <Button
-                        onClick={() => handleAddToCart(rec)}
-                        variant="outline"
-                        className="ml-4"
-                      >
-                        <ShoppingCart className="h-4 w-4 mr-2" />
-                        Add to Cart
-                      </Button>
+                      )}
+                      <CardContent className="p-6 flex-1">
+                        <div className="flex items-start justify-between h-full">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <h3 className="text-xl font-semibold">{rec.roomType}</h3>
+                              <Badge variant="outline">{rec.styleName}</Badge>
+                            </div>
+                            <p className="text-muted-foreground mb-3">{rec.reason}</p>
+                            <p className="text-lg font-bold text-primary">
+                              ${rec.price.toLocaleString()}
+                            </p>
+                          </div>
+                          <Button
+                            onClick={() => handleAddToCart(rec)}
+                            variant="outline"
+                            className="ml-4"
+                          >
+                            <ShoppingCart className="h-4 w-4 mr-2" />
+                            Add to Cart
+                          </Button>
+                        </div>
+                      </CardContent>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
             </div>
           </div>
         )}
