@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 // add in LaunchDarkly SDK
-import { useFlags } from 'launchdarkly-react-client-sdk';
+import { useFlags, useLDClient } from 'launchdarkly-react-client-sdk';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,8 @@ const Customize = () => {
   const navigate = useNavigate();
   // useFlags is used to get the flags from the LaunchDarkly SDK
   const flags = useFlags();
+  // useLDClient is used to track custom events/metrics
+  const ldClient = useLDClient();
   const [user, setUser] = useState<User | null>(null);
   const [selections, setSelections] = useState<Record<string, string>>({});
   const [cartCount, setCartCount] = useState(0);
@@ -174,7 +176,24 @@ const Customize = () => {
             {/* if the buildWithAi flag is true, show the AI builder button */}
             {flags.buildWithAi && (
               <Button
-                onClick={() => navigate("/ai-builder")}
+                onClick={() => {
+                  const startTime = performance.now();
+                  
+                  // Track custom event in LaunchDarkly with response time
+                  if (ldClient) {
+                    // Calculate response time (time since page load)
+                    const responseTime = Math.round(performance.now());
+                    
+                    ldClient.track('build-with-ai-button-click', {
+                      page: 'customize',
+                      responseTime: responseTime,
+                    });
+                    console.log('✅ Event sent to LaunchDarkly: build-with-ai-button-click', {
+                      responseTime: `${responseTime}ms`,
+                    });
+                  }
+                  navigate("/ai-builder");
+                }}
                 variant="default"
                 size="lg"
                 className="gap-2 animate-pulse"
