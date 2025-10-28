@@ -44,6 +44,8 @@ const Customize = () => {
 
     loadUser();
 
+    
+
     const subscription = authService.onAuthStateChange((session, user) => {
       setUser(user);
       if (user) {
@@ -61,6 +63,13 @@ const Customize = () => {
   // Log flag changes for debugging
   useEffect(() => {
     console.log('buildWithAi flag value:', flags.buildWithAi);
+    
+    // Also log after a short delay to catch updates
+    const timeout = setTimeout(() => {
+      console.log('buildWithAi flag value (after delay):', flags.buildWithAi);
+    }, 1000);
+    
+    return () => clearTimeout(timeout);
   }, [flags.buildWithAi]);
 
   const fetchUserLocation = async () => {
