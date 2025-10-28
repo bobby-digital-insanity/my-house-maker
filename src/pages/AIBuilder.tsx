@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useLDClient } from 'launchdarkly-react-client-sdk';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,12 +23,31 @@ interface Recommendation {
 
 const AIBuilder = () => {
   const navigate = useNavigate();
+  const ldClient = useLDClient();
   const [user, setUser] = useState<User | null>(null);
   const [cartCount, setCartCount] = useState(0);
   const [vibe, setVibe] = useState("");
   const [model, setModel] = useState("google/gemini-2.5-flash");
   const [loading, setLoading] = useState(false);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+
+  // Track AIBuilder page load time
+  useEffect(() => {
+    const startTime = sessionStorage.getItem('aiBuilderStartTime');
+    
+    if (startTime && ldClient) {
+      const pageLoadTime = Date.now() - parseInt(startTime, 10);
+      
+      // Track page load time event
+      // Format: track(key, data, metricValue)
+      ldClient.track('ai-builder-page-load', null, pageLoadTime);
+      
+      console.log('✅ Event sent to LaunchDarkly: ai-builder-page-load', pageLoadTime,);
+      
+      // Clear the start time from sessionStorage
+      sessionStorage.removeItem('aiBuilderStartTime');
+    }
+  }, [ldClient]);
 
   useEffect(() => {
     const loadUser = async () => {

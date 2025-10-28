@@ -177,19 +177,20 @@ const Customize = () => {
             {flags.buildWithAi && (
               <Button
                 onClick={() => {
-                  const startTime = performance.now();
+                  // Track when button is clicked (before navigation)
+                  const clickTime = Date.now();
                   
-                  // Track custom event in LaunchDarkly with response time
+                  // Store click time in sessionStorage for AIBuilder to calculate response time
+                  sessionStorage.setItem('aiBuilderStartTime', clickTime.toString());
+                  
+                  // Track custom event in LaunchDarkly
                   if (ldClient) {
-                    // Calculate response time (time since page load)
-                    const responseTime = Math.round(performance.now());
-                    
                     ldClient.track('build-with-ai-button-click', {
                       page: 'customize',
-                      responseTime: responseTime,
+                      clickTime: clickTime,
                     });
                     console.log('✅ Event sent to LaunchDarkly: build-with-ai-button-click', {
-                      responseTime: `${responseTime}ms`,
+                      timestamp: new Date(clickTime).toISOString(),
                     });
                   }
                   navigate("/ai-builder");
