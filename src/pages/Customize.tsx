@@ -219,14 +219,6 @@ const Customize = () => {
                 className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground relative"
               >
                 {room.name}
-                {room.id === "man-cave" && (
-                  <Badge 
-                    variant="destructive" 
-                    className="ml-2 animate-pulse"
-                  >
-                    NEW
-                  </Badge>
-                )}
                 {selections[room.id] && (
                   <span className="ml-2 h-2 w-2 rounded-full bg-accent" />
                 )}
