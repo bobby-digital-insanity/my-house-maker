@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useLDClient } from 'launchdarkly-react-client-sdk';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Navbar from "@/components/Navbar";
 import { authService, cartService } from "@/lib/supabase";
 import { toast } from "sonner";
-import { CheckCircle2, UserCircle, User as UserIcon } from "lucide-react";
+import { CheckCircle2, UserCircle, User as UserIcon, Sparkles } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
 
 interface CartItem {
@@ -20,6 +21,7 @@ interface CartItem {
 
 const Checkout = () => {
   const navigate = useNavigate();
+  const ldClient = useLDClient();
   const [user, setUser] = useState<User | null>(null);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +31,29 @@ const Checkout = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loginMode, setLoginMode] = useState<"signin" | "signup">("signin");
+  
+  // Form fields for billing information
+  const [billingFields, setBillingFields] = useState({
+    name: "",
+    email: "",
+    address: "",
+    city: "",
+    zip: "",
+    card: "",
+  });
+
+  // Function to fill with demo data
+  const fillDemoData = () => {
+    setBillingFields({
+      name: "John Doe",
+      email: user?.email || "john.doe@example.com",
+      address: "123 Main Street",
+      city: "New York",
+      zip: "10001",
+      card: "4242 4242 4242 4242",
+    });
+    toast.success("Demo data filled!");
+  };
 
   useEffect(() => {
     const loadCheckout = async () => {
@@ -108,6 +133,12 @@ const Checkout = () => {
     e.preventDefault();
     setProcessing(true);
 
+    // Track checkout completion event
+    if (ldClient) {
+      ldClient.track('checkout-completed', null, totalPrice);
+      console.log('✅ Event sent to LaunchDarkly: checkout-completed', { totalPrice });
+    }
+
     try {
       // Simulate processing delay
       await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -186,13 +217,31 @@ const Checkout = () => {
                 <TabsContent value="guest" className="mt-6">
                   <Card>
                     <CardHeader>
-                      <CardTitle>Billing Information</CardTitle>
+                      <div className="flex items-center justify-between">
+                        <CardTitle>Billing Information</CardTitle>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={fillDemoData}
+                          className="gap-2"
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          Fill Demo Data
+                        </Button>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       <form onSubmit={handlePlaceOrder} className="space-y-4">
                         <div className="space-y-2">
                           <Label htmlFor="name">Full Name</Label>
-                          <Input id="name" placeholder="John Doe" required />
+                          <Input
+                            id="name"
+                            placeholder="John Doe"
+                            value={billingFields.name}
+                            onChange={(e) => setBillingFields({ ...billingFields, name: e.target.value })}
+                            required
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="email">Email</Label>
@@ -200,21 +249,41 @@ const Checkout = () => {
                             id="email"
                             type="email"
                             placeholder="john@example.com"
+                            value={billingFields.email}
+                            onChange={(e) => setBillingFields({ ...billingFields, email: e.target.value })}
                             required
                           />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="address">Address</Label>
-                          <Input id="address" placeholder="123 Main St" required />
+                          <Input
+                            id="address"
+                            placeholder="123 Main St"
+                            value={billingFields.address}
+                            onChange={(e) => setBillingFields({ ...billingFields, address: e.target.value })}
+                            required
+                          />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label htmlFor="city">City</Label>
-                            <Input id="city" placeholder="New York" required />
+                            <Input
+                              id="city"
+                              placeholder="New York"
+                              value={billingFields.city}
+                              onChange={(e) => setBillingFields({ ...billingFields, city: e.target.value })}
+                              required
+                            />
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="zip">ZIP Code</Label>
-                            <Input id="zip" placeholder="10001" required />
+                            <Input
+                              id="zip"
+                              placeholder="10001"
+                              value={billingFields.zip}
+                              onChange={(e) => setBillingFields({ ...billingFields, zip: e.target.value })}
+                              required
+                            />
                           </div>
                         </div>
                         <div className="space-y-2">
@@ -222,9 +291,12 @@ const Checkout = () => {
                           <Input
                             id="card"
                             placeholder="4242 4242 4242 4242"
+                            value={billingFields.card}
+                            onChange={(e) => setBillingFields({ ...billingFields, card: e.target.value })}
                             required
                           />
                         </div>
+                        
                         <Button
                           type="submit"
                           size="lg"
@@ -291,13 +363,31 @@ const Checkout = () => {
             ) : (
               <Card>
                 <CardHeader>
-                  <CardTitle>Billing Information</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>Billing Information</CardTitle>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={fillDemoData}
+                      className="gap-2"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Fill Demo Data
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handlePlaceOrder} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="name">Full Name</Label>
-                      <Input id="name" placeholder="John Doe" required />
+                      <Input
+                        id="name"
+                        placeholder="John Doe"
+                        value={billingFields.name}
+                        onChange={(e) => setBillingFields({ ...billingFields, name: e.target.value })}
+                        required
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="email">Email</Label>
@@ -305,22 +395,41 @@ const Checkout = () => {
                         id="email"
                         type="email"
                         placeholder="john@example.com"
-                        defaultValue={user.email}
+                        value={billingFields.email || user.email}
+                        onChange={(e) => setBillingFields({ ...billingFields, email: e.target.value })}
                         required
                       />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="address">Address</Label>
-                      <Input id="address" placeholder="123 Main St" required />
+                      <Input
+                        id="address"
+                        placeholder="123 Main St"
+                        value={billingFields.address}
+                        onChange={(e) => setBillingFields({ ...billingFields, address: e.target.value })}
+                        required
+                      />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="city">City</Label>
-                        <Input id="city" placeholder="New York" required />
+                        <Input
+                          id="city"
+                          placeholder="New York"
+                          value={billingFields.city}
+                          onChange={(e) => setBillingFields({ ...billingFields, city: e.target.value })}
+                          required
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="zip">ZIP Code</Label>
-                        <Input id="zip" placeholder="10001" required />
+                        <Input
+                          id="zip"
+                          placeholder="10001"
+                          value={billingFields.zip}
+                          onChange={(e) => setBillingFields({ ...billingFields, zip: e.target.value })}
+                          required
+                        />
                       </div>
                     </div>
                     <div className="space-y-2">
@@ -328,6 +437,8 @@ const Checkout = () => {
                       <Input
                         id="card"
                         placeholder="4242 4242 4242 4242"
+                        value={billingFields.card}
+                        onChange={(e) => setBillingFields({ ...billingFields, card: e.target.value })}
                         required
                       />
                     </div>
