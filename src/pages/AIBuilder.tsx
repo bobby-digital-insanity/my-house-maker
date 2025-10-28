@@ -207,12 +207,18 @@ const AIBuilder = () => {
         // Track failed AI generation event
         if (ldClient) {
           const responseTime = Date.now() - startTime;
-          ldClient.track('ai-recommendations-failed', {
+          ldClient.track('ai-recommendations-generated', {
             model: model,
             responseTime: responseTime,
+            success: "failure",
+            fakeError: true,
+          }, responseTime);
+          console.log('❌ Event sent to LaunchDarkly: ai-recommendations-generated', {
+            model: model,
+            responseTime: `${responseTime}ms`,
+            success: "failure",
             fakeError: true,
           });
-          console.log('❌ Fake error triggered for non-recommended model');
         }
         return;
       }
@@ -235,14 +241,30 @@ const AIBuilder = () => {
           ldClient.track('ai-recommendations-generated', {
             model: model,
             responseTime: responseTime,
+            success: "success",
           }, responseTime);
           console.log('✅ Event sent to LaunchDarkly: ai-recommendations-generated', {
             model: model,
             responseTime: `${responseTime}ms`,
+            success: "success",
           });
         }
       } else {
         toast.error("Failed to generate recommendations");
+        
+        // Track failed AI generation event
+        if (ldClient) {
+          ldClient.track('ai-recommendations-generated', {
+            model: model,
+            responseTime: responseTime,
+            success: "failure",
+          }, responseTime);
+          console.log('❌ Event sent to LaunchDarkly: ai-recommendations-generated', {
+            model: model,
+            responseTime: `${responseTime}ms`,
+            success: "failure",
+          });
+        }
       }
     } catch (error) {
       console.error('Error generating recommendations:', error);
@@ -251,13 +273,15 @@ const AIBuilder = () => {
       // Track failed AI generation event
       if (ldClient) {
         const responseTime = Date.now() - startTime;
-        ldClient.track('ai-recommendations-failed', {
+        ldClient.track('ai-recommendations-generated', {
           model: model,
           responseTime: responseTime,
-        });
-        console.log('❌ Event sent to LaunchDarkly: ai-recommendations-failed', {
+          success: "failure",
+        }, responseTime);
+        console.log('❌ Event sent to LaunchDarkly: ai-recommendations-generated', {
           model: model,
           responseTime: `${responseTime}ms`,
+          success: "failure",
         });
       }
     } finally {
