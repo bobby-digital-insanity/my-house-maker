@@ -91,22 +91,53 @@ const AIBuilder = () => {
     setLoading(true);
     setRecommendations([]);
 
+    // Track when AI generation starts
+    const startTime = Date.now();
+
     try {
       const { data, error } = await supabase.functions.invoke('ai-home-recommendations', {
         body: { vibe, model }
       });
+
+      // Calculate response time
+      const responseTime = Date.now() - startTime;
 
       if (error) throw error;
 
       if (data?.recommendations) {
         setRecommendations(data.recommendations);
         toast.success("AI recommendations generated!");
+
+        // Track successful AI generation event
+        if (ldClient) {
+          ldClient.track('ai-recommendations-generated', {
+            model: model,
+            responseTime: responseTime,
+          }, responseTime);
+          console.log('✅ Event sent to LaunchDarkly: ai-recommendations-generated', {
+            model: model,
+            responseTime: `${responseTime}ms`,
+          });
+        }
       } else {
         toast.error("Failed to generate recommendations");
       }
     } catch (error) {
       console.error('Error generating recommendations:', error);
       toast.error("Failed to generate recommendations. Please try again.");
+      
+      // Track failed AI generation event
+      if (ldClient) {
+        const responseTime = Date.now() - startTime;
+        ldClient.track('ai-recommendations-failed', {
+          model: model,
+          responseTime: responseTime,
+        });
+        console.log('❌ Event sent to LaunchDarkly: ai-recommendations-failed', {
+          model: model,
+          responseTime: `${responseTime}ms`,
+        });
+      }
     } finally {
       setLoading(false);
     }
