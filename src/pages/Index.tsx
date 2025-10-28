@@ -98,20 +98,12 @@ const Index = () => {
                 <Button
                   size="lg"
                   variant="secondary"
-                  onClick={() => navigate("/auth")}
+                  onClick={() => navigate("/Customize")}
                   className="text-lg"
                 >
                   Get Started
                 </Button>
               )}
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => navigate("/customize")}
-                className="bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary"
-              >
-                View Styles
-              </Button>
             </div>
           </div>
         </div>

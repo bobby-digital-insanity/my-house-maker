@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { authService } from "@/lib/supabase";
+import Navbar from "@/components/Navbar";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -114,7 +115,9 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-muted/30 to-background p-4">
+    <div className="min-h-screen bg-background">
+      <Navbar user={null} cartCount={0} />
+      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] bg-gradient-to-br from-background via-muted/30 to-background p-4">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-bold">DreamHome Builder</CardTitle>
@@ -210,6 +213,7 @@ const Auth = () => {
           </Tabs>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 };
