@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useLDClient} from 'launchdarkly-react-client-sdk';
+import { useLDClient, useFlags} from 'launchdarkly-react-client-sdk';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -122,6 +122,7 @@ const getRoomImage = (roomType: string, styleName: string): string | null => {
 const AIBuilder = () => {
   const navigate = useNavigate();
   const ldClient = useLDClient();
+  const flags = useFlags();
   const [user, setUser] = useState<User | null>(null);
   const [cartCount, setCartCount] = useState(0);
   const [vibe, setVibe] = useState("");
@@ -205,6 +206,8 @@ const AIBuilder = () => {
         toast.error("Failed to generate recommendations");
         
         // Track failed AI generation event
+        // creating two events, in the future we can combine them into one event and split by model
+        // but for now we will keep them separate
         if (ldClient) {
           const responseTime = Date.now() - startTime;
           ldClient.track('ai-recommendations-generated', {
@@ -213,6 +216,18 @@ const AIBuilder = () => {
             success: "failure",
             fakeError: true,
           }, responseTime);
+          ldClient.track('google/gemini-2.5-pro', {
+            model: model,
+            responseTime: responseTime,
+            success: "failure",
+            fakeError: true,
+          }, responseTime);
+          console.log('❌ Event sent to LaunchDarkly: google/gemini-2.5-pro', {
+            model: model,
+            responseTime: `${responseTime}ms`,
+            success: "failure",
+            fakeError: true,
+          });
           console.log('❌ Event sent to LaunchDarkly: ai-recommendations-generated', {
             model: model,
             responseTime: `${responseTime}ms`,
@@ -370,7 +385,10 @@ const AIBuilder = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="google/gemini-2.5-flash">Gemini 2.5 Flash (Recommended)</SelectItem>
-                  <SelectItem value="google/gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
+                  {/* if the modelSelectionGemini25Pro flag is true, show the Gemini 2.5 Pro option */} 
+                  {flags.modelSelectionGemini25Pro && (
+                    <SelectItem value="google/gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>

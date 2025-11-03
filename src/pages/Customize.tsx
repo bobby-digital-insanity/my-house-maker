@@ -62,18 +62,6 @@ const Customize = () => {
     };
   }, [navigate]);
 
-  // Log flag changes for debugging
-  useEffect(() => {
-    console.log('buildWithAi flag value:', flags.buildWithAi);
-    
-    // Also log after a short delay to catch updates
-    const timeout = setTimeout(() => {
-      console.log('buildWithAi flag value (after delay):', flags.buildWithAi);
-    }, 1000);
-    
-    return () => clearTimeout(timeout);
-  }, [flags.buildWithAi]);
-
   const fetchUserLocation = async () => {
     try {
       const { data, error } = await supabase.functions.invoke('get-location');
