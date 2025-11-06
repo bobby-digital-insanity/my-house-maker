@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Home, ShoppingCart, LogOut, User } from "lucide-react";
+import { Home, ShoppingCart, LogOut, User, Settings } from "lucide-react";
 import { authService } from "@/lib/supabase";
 import { toast } from "sonner";
 import {
@@ -31,6 +31,10 @@ const Navbar = ({ user, cartCount = 0 }: NavbarProps) => {
       navigate("/auth");
     }
   };
+
+  const settings = async () => {
+    navigate("/settings");
+  }
 
   const getUserInitials = (email: string | undefined) => {
     if (!email) return "U";
@@ -82,6 +86,10 @@ const Navbar = ({ user, cartCount = 0 }: NavbarProps) => {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={settings}>
+                    <Settings className="h-4 w-4 mr-2" />
+                    Settings
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleSignOut} className="text-red-600 focus:text-red-600">
                     <LogOut className="h-4 w-4 mr-2" />
                     Logout
