@@ -60,14 +60,6 @@ console.log('hasPremiumSupport', hasPremiumSupport);
     };
   }, []);
 
-  // Remove this useEffect - no longer needed since we initialize from localStorage
-  // useEffect(() => {
-  //   const savedPreference = localStorage.getItem('showLiveChatSupport');
-  //   if (savedPreference !== null) {
-  //     setShowLiveChatSupport(savedPreference === 'true');
-  //   }
-  // }, []);
-
   // Sync to localStorage when toggle changes
   useEffect(() => {
     localStorage.setItem('showLiveChatSupport', showLiveChatSupport.toString());
