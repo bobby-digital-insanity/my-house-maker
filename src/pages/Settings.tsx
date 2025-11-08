@@ -36,7 +36,7 @@ const SettingsPage = () => {
 // Extract flag value with explicit default fallback
 // Default to false if LD is unavailable or flag doesn't exist
 const hasPremiumSupport = ldClient 
-? ldClient.variation("premium-support", false)
+? ldClient.variation("premiumSupport", false)
 : false; // Fallback when client isn't available
 console.log('hasPremiumSupport', hasPremiumSupport);
 

@@ -30,11 +30,13 @@ const createLDContext = (user: User | null) => {
         email: user.email,
         name: user.email?.split('@')[0],
         anonymous: false,
+        premium: true,
       }
     : {
         kind: 'user',
         key: 'anonymous-user',
         anonymous: true,
+        premium: false,
       };
 };
 
@@ -115,6 +117,7 @@ const AppContent = () => {
     // Listen for auth state changes
     const subscription = authService.onAuthStateChange((session, user) => {
       setUser(user);
+      console.log('User:', user);
     });
 
     return () => {
@@ -129,8 +132,13 @@ const AppContent = () => {
       const currentKey = user?.email || user?.id || 'anonymous-user';
       
       console.log('LaunchDarkly context:', ldContext);
-      console.log('User email:', user?.email);
+      console.log('User key:', ldContext.key);
+      console.log('User name:', ldContext.name ?? '(no name)');
+      console.log('User email:', ldContext.email ?? '(no email)');
+      console.log('User anonymous:', ldContext.anonymous);
+      console.log('User premium:', (ldContext as { premium?: boolean }).premium ?? false);
       console.log('Email contains realtor.com:', user?.email?.includes('realtor.com'));
+      console.log('Full Supabase user object:', user);
       
       ldClient.identify(ldContext);
     }
@@ -188,11 +196,14 @@ const AppWithLD = () => {
         email: user.email,
         name: user.email?.split('@')[0], // Use email prefix as name
         anonymous: false,
+        // hard code premium users to true for example, this would be pulled from SSO or user database.
+        premium: true,
       } 
     : {
         kind: 'user',
         key: 'anonymous-user',
         anonymous: true,
+        premium: false,
       };
 
   return (
