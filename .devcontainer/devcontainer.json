@@ -3,6 +3,11 @@
   "image": "mcr.microsoft.com/devcontainers/typescript-node:20",
   "remoteUser": "node",
   "forwardPorts": [8080],
+  "remoteEnv": {
+    "VITE_LAUNCHDARKLY_CLIENT_SIDE_ID": "${localEnv:VITE_LAUNCHDARKLY_CLIENT_SIDE_ID}",
+    "VITE_SUPABASE_URL": "${localEnv:VITE_SUPABASE_URL}",
+    "VITE_SUPABASE_PUBLISHABLE_KEY": "${localEnv:VITE_SUPABASE_PUBLISHABLE_KEY}"
+  },
   "portsAttributes": {
     "8080": {
       "label": "Vite Dev Server",
@@ -10,6 +15,7 @@
     }
   },
   "postCreateCommand": "npm install",
+  "postStartCommand": "bash .devcontainer/setup-env.sh",
   "customizations": {
     "vscode": {
       "settings": {
