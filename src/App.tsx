@@ -131,6 +131,7 @@ const AppContent = () => {
       const ldContext = createLDContext(user);
       const currentKey = user?.email || user?.id || 'anonymous-user';
       
+      // adding these logs to help showcase the LaunchDarkly context and user object.
       console.log('LaunchDarkly context:', ldContext);
       console.log('User key:', ldContext.key);
       console.log('User name:', ldContext.name ?? '(no name)');
