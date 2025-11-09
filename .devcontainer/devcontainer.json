@@ -4,6 +4,12 @@
   "image": "mcr.microsoft.com/devcontainers/typescript-node:20",
   "remoteUser": "node",
   "forwardPorts": [8080],
+  "secrets": {
+  "NAME_OF_SECRET_1": {
+    "description": "This is the description of the secret.",
+    "documentationUrl": "https://example.com/link/to/info"
+    }
+  },
   "remoteEnv": {
     "VITE_LAUNCHDARKLY_CLIENT_SIDE_ID": "${localEnv:VITE_LAUNCHDARKLY_CLIENT_SIDE_ID}",
     "VITE_SUPABASE_URL": "${localEnv:VITE_SUPABASE_URL}",
