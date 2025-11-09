@@ -5,13 +5,13 @@
   "remoteUser": "node",
   "forwardPorts": [8080],
   "secrets": {
-  "NAME_OF_SECRET_1": {
-    "description": "This is the description of the secret.",
-    "documentationUrl": "https://example.com/link/to/info"
-    }
+    "LAUNCHDARKLY_CLIENT_SIDE_ID": {
+      "description": "LaunchDarkly SDK credentials",
+      "documentationUrl": "https://launchdarkly.com/docs/home/account/environment/keys#view-sdk-credentials"
+      }
   },
   "remoteEnv": {
-    "VITE_LAUNCHDARKLY_CLIENT_SIDE_ID": "${localEnv:VITE_LAUNCHDARKLY_CLIENT_SIDE_ID}",
+    "VITE_LAUNCHDARKLY_CLIENT_SIDE_ID": "${localEnv:LAUNCHDARKLY_CLIENT_SIDE_ID}",
     "VITE_SUPABASE_URL": "${localEnv:VITE_SUPABASE_URL}",
     "VITE_SUPABASE_PUBLISHABLE_KEY": "${localEnv:VITE_SUPABASE_PUBLISHABLE_KEY}"
   },
