@@ -13,6 +13,7 @@ import Customize from "./pages/Customize";
 import AIBuilder from "./pages/AIBuilder";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
+// matching with the file name in the pages directory
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import { authService } from "@/lib/supabase";
