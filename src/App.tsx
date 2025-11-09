@@ -13,7 +13,7 @@ import Customize from "./pages/Customize";
 import AIBuilder from "./pages/AIBuilder";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
-import Settings from "./pages/Settings";
+import Settings from "./pages/settings";
 import NotFound from "./pages/NotFound";
 import { authService } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
