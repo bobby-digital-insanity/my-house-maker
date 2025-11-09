@@ -33,12 +33,10 @@ const SettingsPage = () => {
   const ldClient = useLDClient();
   const flags = useFlags();
   
-// Extract flag value with explicit default fallback
-// Default to false if LD is unavailable or flag doesn't exist
-const hasPremiumSupport = ldClient 
-? ldClient.variation("premiumSupport", false)
-: false; // Fallback when client isn't available
-console.log('hasPremiumSupport', hasPremiumSupport);
+
+// get users premium support status from LaunchDarkly
+const hasPremiumSupport = flags.premiumSupport;
+console.log('PremiumSupport', hasPremiumSupport);
 
 
 
