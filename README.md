@@ -67,6 +67,8 @@ The steps below outline what is required to run this application and test it out
   - Operator: contains
   - Values: realtor.com
   - Variation: True
+ 
+![Screenshot of custom rule creation](https://github.com/bobby-digital-insanity/my-house-maker/edit/main/assets/images/email-rule-flag.png)
 
 
 - Repeate the steps above two more times for the `premium-support` and `model-selection-gemini-2-5-pro` feature flags. 
