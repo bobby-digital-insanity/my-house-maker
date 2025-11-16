@@ -51,11 +51,14 @@ The steps below outline what is required to run this application and test it out
 
 - Please follow the steps below to create a new feature flag or this documentation: [documentation](https://launchdarkly.com/docs/home/flags/new#overview)
 - Once logged into your LaunchDarkly account, in the top left of the UI click on top left blue button "+ Create" and then "flag"
-- Give the flag a new name of "Build with AI" and a description if desired. This will be the first flag that will we will be using in this lab. Leave the other options alone and click on the "create flag" button. 
+   - ![Screenshot of flag creation](https://github.com/bobby-digital-insanity/my-house-maker/blob/main/assets/images/create-flag-button.png)
+- Give the flag a new name of "Build with AI" and a description if desired. This will be the first flag that will we will be using in this lab. Leave the other options alone and click on the "create flag" button.
+   - ![Screenshot of flag creation name](https://github.com/bobby-digital-insanity/my-house-maker/blob/main/assets/images/name-flag-create.png)
 - Once created, on the right side navigation/metadata section, at the very bottom, click on "advanced controls" and toggle on the "Available on client-side SDKs" control.
 - This will allow the feature flag to be leveraged with the hooks we have in place on our JS based application. This is not needed if you plan on implementing this on any backend systems like .NET, Java, etc...
 - Save this client-side SDK ID as this will be entered into the Codespaces secrects section once we run the Codespace. Only one client-side SDK ID is needed for us to connect all of our feature flags.
    - [View SDK credentials](https://launchdarkly.com/docs/home/account/environment/keys#view-sdk-credentials).
+![Screenshot of flag settings](https://github.com/bobby-digital-insanity/my-house-maker/blob/main/assets/images/enable-copy-client-sdk.png)
 
 ## Edit New Feature Flag in LaunchDarkly UI:
 
@@ -68,7 +71,7 @@ The steps below outline what is required to run this application and test it out
   - Values: realtor.com
   - Variation: True
  
-![Screenshot of custom rule creation](https://github.com/bobby-digital-insanity/my-house-maker/edit/main/assets/images/email-rule-flag.png)
+   - ![Screenshot of custom rule creation](https://github.com/bobby-digital-insanity/my-house-maker/blob/main/assets/images/email-rule-flag.png)
 
 
 - Repeate the steps above two more times for the `premium-support` and `model-selection-gemini-2-5-pro` feature flags. 
