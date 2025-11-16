@@ -215,7 +215,7 @@ The Supabase credentials are stored as secrets in the CodeSpace configuration. I
 ## Local Development
 
 ```sh
-git clone <REPO_URL>
+git clone https://github.com/bobby-digital-insanity/my-house-maker.git
 cd my-house-maker
 npm install
 npm run dev
