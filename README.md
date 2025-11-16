@@ -89,21 +89,30 @@ LaunchDarkly powers progressive delivery throughout the app:
 
 - now that we have LaunchDarkly setup and the required information gathered, we can now use GitHub Codespaces to run the application and test out our changes live.
 - On this page, click on the top right green button "<> Code", and then "Codespaces", and then the three dots and "+ New with options..."
-- IMAGE
+- ![Screenshot of codespaces](https://github.com/bobby-digital-insanity/my-house-maker/blob/main/assets/images/new-with-options.png)
 - Keep all of the settings options the same and then paste in the client-side SDK ID that we saved from earlier and click "Create codespace".
+- ![Screenshot of codespaces](https://github.com/bobby-digital-insanity/my-house-maker/blob/main/assets/images/client-side-id-codespace.png)
 - Allow this to warm up for about a minute, and when ready run in the console below `npm run dev`
 - This will deploy the application and prompt you with a a "open in browser option". Click on that option or navigate to blue hyperlink "http://localhost:8080" in the output of terminal.
-- IMAGE OF TERMINAL
+- ![Screenshot of terminal](https://github.com/bobby-digital-insanity/my-house-maker/blob/main/assets/images/npm-run-dev.png)
 
 ### Test Use Cases of the Application and LaunchDarkly
 
 - On the applcation is running, you can click around and use the application as a normal user. To start to see the new features that we gated behind the feature flags, create a new user and make sure to include "realtor.com" as the email address. This will match the rule that we created above to allow these flags to only show to these types of users.
 - Once the user is created, navigate to the main customize page of the application and you can now see the "Build with AI" button. Click on that, keep the first AI model selection, and type out a prompt to see your customized results. If you select the second AI model, it will always return a failed response. This second AI model is also wrapped in a feature flag hook in the code to disable/enable at any moment. Go into the LaunchDarkly UI and disable that flag by turning it off, go back to that page (no page reload required) and see that it is no longer there.
-   - IMAGE OF Prompt
-   - IMAGE OF DISABLE
+   - If you are not logged in or logged in with a user that does not have `realtor.com` in the email, you will not see the "Build with AI" feature:
+   - ![Screenshot of no feature](https://github.com/bobby-digital-insanity/my-house-maker/blob/main/assets/images/no-build-with-ai.png)
+   - Creation of a user: 
+    - ![Screenshot of user create](https://github.com/bobby-digital-insanity/my-house-maker/blob/main/assets/images/sign-up.png)
+   - When logged in with the correct user, you will then see the new "Build with AI" feature:
+    - ![Screenshot of new feature](https://github.com/bobby-digital-insanity/my-house-maker/blob/main/assets/images/build-with-ai.png)
+   - Entering a prompt for the "broken" AI model: 
+    - ![Screenshot of broken model prompt](https://github.com/bobby-digital-insanity/my-house-maker/blob/main/assets/images/failed-prompt.png)
+   - Manually disable that model from being an option: 
+    - ![Screenshot of broken model prompt](https://github.com/bobby-digital-insanity/my-house-maker/blob/main/assets/images/turn-off-model.png)
  
 - Another feature flag we implemented was a "premium" user that has access to a live chat feature. In the settings page (top right profile button, and then settings if logged in as a user), scroll down to "Premium Preferences" and make sure the flag is turned on. If you are logged in as a non "realtor.com" user, this option will not be available to enable and display a message stating to reach out to their account contact for premium licensing.
-   - IMAGE OF SUPPORT
+   - ![Screenshot of live chat](https://github.com/bobby-digital-insanity/my-house-maker/blob/main/assets/images/live-chat.png)
 
 ## How This All Works
 
