@@ -6,7 +6,6 @@ The My House Maker is a sample application built to spotlight LaunchDarkly’s m
 
 This lab guide provides a step-by-step walkthrough for integrating LaunchDarkly into your development workflow. You’ll learn how to implement LaunchDarkly’s SDK, wrap key application features with feature flag hooks, and configure flags directly within the LaunchDarkly user interface. Finally, you’ll deploy the application using GitHub Codespaces to observe your changes in real time.
 
-For a quick rundown of this project, please watch this short video of what this lab accomplishes: XXXXX
 
 
 ## Main Steps
