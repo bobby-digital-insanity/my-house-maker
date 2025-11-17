@@ -139,6 +139,19 @@ const Checkout = () => {
       console.log('✅ Event sent to LaunchDarkly: checkout-completed', { totalPrice });
     }
 
+    // Call Node.js script via local server to log price to server console
+    // This runs in the background and doesn't block the checkout flow
+    fetch('http://localhost:3001/log-checkout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ totalPrice }),
+    }).catch((error) => {
+      // Silently fail - we don't want to block checkout if logging fails
+      console.error('Failed to log checkout to server:', error);
+    });
+
     try {
       // Simulate processing delay
       await new Promise((resolve) => setTimeout(resolve, 2000));
