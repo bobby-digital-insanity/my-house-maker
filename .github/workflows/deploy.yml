@@ -1,0 +1,33 @@
+# .github/workflows/deploy.yml
+
+name: Deploy to EC2
+
+# 1. TRIGGER: When to run this workflow
+on:
+  push:
+    branches:
+      - main # Run this workflow when code is pushed to the 'main' branch
+
+# 2. JOB: What to do
+jobs:
+  deploy:
+    runs-on: ubuntu-latest # Use the latest Ubuntu runner
+
+    steps:
+      # Step 2.1: Check out the repository code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2.2: Deploy to the EC2 instance
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master # A pre-built action for SSH commands
+        with:
+          host: ${{ secrets.EC2_HOST }} # Use the secret we created
+          username: ${{ secrets.EC2_USERNAME }} # Use the secret we created
+          key: ${{ secrets.EC2_SSH_KEY }} # Use the secret we created
+          # The commands to run on the EC2 server
+          script: |
+            cd /home/ec2-user/my-house-maker
+            git pull origin main
+            npm install
+            pm2 restart MyHouseMaker

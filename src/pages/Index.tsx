@@ -57,8 +57,8 @@ const Index = () => {
     },
     {
       icon: <CheckCircle className="h-8 w-8" />,
-      title: "Instant Preview",
-      description: "Visualize your choices with high-quality room renders",
+      title: "Our Modern Approach to Technology",
+      description: "We follow CI/CD and SDLC best practices using LaunchDarkly to ensure the highest quality of code and deployment.",
     },
   ];
 
