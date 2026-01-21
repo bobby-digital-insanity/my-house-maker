@@ -52,7 +52,7 @@ const Index = () => {
     },
     {
       icon: <ShoppingCart className="h-8 w-8" />,
-      title: "Simple Process",
+      title: "Feature Flags",
       description: "Easy selection and checkout process from start to finish",
     },
     {
