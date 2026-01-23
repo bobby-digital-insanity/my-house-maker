@@ -42,7 +42,7 @@ const Index = () => {
   const features = [
     {
       icon: <Home className="h-8 w-8" />,
-      title: "Premium Designs",
+      title: "Premium Designs? yes!",
       description: "Choose from carefully curated architectural styles for every room",
     },
     {
