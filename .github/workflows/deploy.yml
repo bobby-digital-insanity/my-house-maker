@@ -30,4 +30,10 @@ jobs:
             cd /home/ec2-user/my-house-maker
             git pull origin main
             npm install
-            pm2 restart MyHouseMaker
+            # Build the frontend
+            npm run build
+            # Restart API process (or start if it doesn't exist)
+            pm2 restart MyHouseMaker-API 2>/dev/null || pm2 start server.js --name MyHouseMaker-API
+            # Restart Frontend process (or start if it doesn't exist)
+            pm2 restart MyHouseMaker-Frontend 2>/dev/null || pm2 start npm --name MyHouseMaker-Frontend -- run preview
+            pm2 save
