@@ -151,7 +151,7 @@ export const authService = {
         return { data: { session: null, user: null }, error: null };
       }
 
-      // Verify token is still valid
+      // Verify token is still valid by calling the API
       const response = await fetch(`${API_URL}/api/auth/session`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -159,15 +159,29 @@ export const authService = {
       });
 
       if (!response.ok) {
-        // Token invalid, clear storage
+        // Token invalid or expired, clear storage
         removeToken();
         removeUser();
         return { data: { session: null, user: null }, error: null };
       }
 
       const data = await response.json();
-      return { data, error: null };
+      
+      // Make sure we have both session and user
+      if (data?.session?.user) {
+        // Update stored user data with fresh data from server
+        setUser(data.user);
+        return { data, error: null };
+      } else {
+        // Invalid response format, clear storage
+        removeToken();
+        removeUser();
+        return { data: { session: null, user: null }, error: null };
+      }
     } catch (error) {
+      // Network error or other issue, clear potentially stale data
+      removeToken();
+      removeUser();
       return {
         data: { session: null, user: null },
         error: { message: error instanceof Error ? error.message : 'Network error' },

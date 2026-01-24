@@ -46,6 +46,11 @@ const Auth = () => {
         // Only redirect if we have a valid session with a user
         if (data?.session?.user && !error) {
           navigate("/");
+        } else {
+          // Clear any stale data
+          if (data?.session === null) {
+            // Session check already cleared invalid data
+          }
         }
       } catch (error) {
         // If there's an error checking session, stay on auth page
