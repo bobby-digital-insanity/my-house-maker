@@ -40,11 +40,20 @@ const Auth = () => {
 
   useEffect(() => {
     // Check if user is already logged in
-    authService.getSession().then(({ data }) => {
-      if (data.session) {
-        navigate("/");
+    const checkSession = async () => {
+      try {
+        const { data, error } = await authService.getSession();
+        // Only redirect if we have a valid session with a user
+        if (data?.session?.user && !error) {
+          navigate("/");
+        }
+      } catch (error) {
+        // If there's an error checking session, stay on auth page
+        console.error('Error checking session:', error);
       }
-    });
+    };
+    
+    checkSession();
   }, [navigate]);
 
   const handleSignUp = async (e: React.FormEvent) => {
