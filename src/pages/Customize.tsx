@@ -10,9 +10,9 @@ import Navbar from "@/components/Navbar";
 import { roomTypes } from "@/lib/roomData";
 import { manCaveTeams } from "@/lib/manCaveData";
 import { supabase } from "@/integrations/supabase/client";
-import { authService, cartService, type User } from "@/lib/supabase";
+import { authService, cartService, type User, type CartItem } from "@/lib/supabase";
 import { toast } from "sonner";
-import { ShoppingCart, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import type { RoomType } from "@/lib/roomData";
 
 const Customize = () => {
@@ -22,7 +22,7 @@ const Customize = () => {
   // useLDClient is used to track custom events/metrics
   const ldClient = useLDClient();
   const [user, setUser] = useState<User | null>(null);
-  const [selections, setSelections] = useState<Record<string, string>>({});
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [cartCount, setCartCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [userTeam, setUserTeam] = useState<string>("bruins");
@@ -33,26 +33,25 @@ const Customize = () => {
       const { data } = await authService.getSession();
       if (data?.session?.user) {
         setUser(data.session.user);
-        loadCartCount(data.session.user.id);
+        await loadCartItems(data.session.user.id);
         // Migrate guest cart if exists
         await cartService.migrateGuestCartToUser(data.session.user.id);
+        await loadCartItems(data.session.user.id);
       } else {
         // Guest user - load from localStorage
-        loadCartCount();
+        await loadCartItems();
       }
       fetchUserLocation();
     };
 
     loadUser();
 
-    
-
-    const subscription = authService.onAuthStateChange((session, user) => {
+    const subscription = authService.onAuthStateChange(async (session, user) => {
       setUser(user);
       if (user) {
-        loadCartCount(user.id);
+        await loadCartItems(user.id);
       } else {
-        loadCartCount();
+        await loadCartItems();
       }
     });
 
@@ -96,61 +95,76 @@ const Customize = () => {
     setAllRoomTypes([...roomTypes, manCaveRoom]);
   };
 
-  const loadCartCount = async (userId?: string) => {
+  const loadCartItems = async (userId?: string) => {
     const { data } = await cartService.getCartItems(userId);
+    setCartItems(data || []);
     setCartCount(data?.length || 0);
   };
 
-  const handleSelectStyle = (roomId: string, styleId: string) => {
-    setSelections((prev) => ({
-      ...prev,
-      [roomId]: prev[roomId] === styleId ? "" : styleId,
-    }));
+  const isItemInCart = (roomName: string, styleName: string): boolean => {
+    return cartItems.some(
+      (item) => item.room_type === roomName && item.style === styleName
+    );
   };
 
-  const handleAddToCart = async () => {
-    const selectedItems = Object.entries(selections).filter(([_, styleId]) => styleId);
-    
-    if (selectedItems.length === 0) {
-      toast.error("Please select at least one room style");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      for (const [roomId, styleId] of selectedItems) {
-        const room = allRoomTypes.find((r) => r.id === roomId);
-        const style = room?.styles.find((s) => s.id === styleId);
-
-        if (room && style) {
-          await cartService.addToCart({
-            user_id: user?.id || "guest",
-            room_type: room.name,
-            style: style.name,
-            price: style.price,
-          }, user?.id);
-        }
-      }
-
-      toast.success(`Added ${selectedItems.length} item(s) to cart`);
-      setSelections({});
-      loadCartCount(user?.id);
-      navigate("/cart");
-    } catch (error) {
-      toast.error("Failed to add items to cart");
-    } finally {
-      setLoading(false);
-    }
+  const getCartItemId = (roomName: string, styleName: string): string | undefined => {
+    const item = cartItems.find(
+      (item) => item.room_type === roomName && item.style === styleName
+    );
+    return item?.id;
   };
 
-  const selectedCount = Object.values(selections).filter(Boolean).length;
-  const totalPrice = Object.entries(selections).reduce((sum, [roomId, styleId]) => {
-    if (!styleId) return sum;
+  const handleCartToggle = async (roomId: string, styleId: string) => {
     const room = allRoomTypes.find((r) => r.id === roomId);
     const style = room?.styles.find((s) => s.id === styleId);
-    return sum + (style?.price || 0);
-  }, 0);
+
+    if (!room || !style) return;
+
+    const inCart = isItemInCart(room.name, style.name);
+
+    if (inCart) {
+      // Remove from cart
+      const itemId = getCartItemId(room.name, style.name);
+      if (itemId) {
+        setLoading(true);
+        try {
+          const { error } = await cartService.removeFromCart(itemId, user?.id);
+          if (error) {
+            toast.error("Failed to remove item from cart");
+          } else {
+            await loadCartItems(user?.id);
+            toast("Item removed from cart");
+          }
+        } catch (error) {
+          toast.error("Failed to remove item from cart");
+        } finally {
+          setLoading(false);
+        }
+      }
+    } else {
+      // Add to cart
+      setLoading(true);
+      try {
+        const { error } = await cartService.addToCart({
+          user_id: user?.id || "guest",
+          room_type: room.name,
+          style: style.name,
+          price: style.price,
+        }, user?.id);
+
+        if (error) {
+          toast.error("Failed to add item to cart");
+        } else {
+          await loadCartItems(user?.id);
+          toast("Item added to cart");
+        }
+      } catch (error) {
+        toast.error("Failed to add item to cart");
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
 
   return (
 
@@ -206,9 +220,6 @@ const Customize = () => {
                 className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground relative"
               >
                 {room.name}
-                {selections[room.id] && (
-                  <span className="ml-2 h-2 w-2 rounded-full bg-accent" />
-                )}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -228,8 +239,8 @@ const Customize = () => {
                   <RoomCard
                     key={style.id}
                     style={style}
-                    selected={selections[room.id] === style.id}
-                    onSelect={() => handleSelectStyle(room.id, style.id)}
+                    inCart={isItemInCart(room.name, style.name)}
+                    onCartToggle={() => handleCartToggle(room.id, style.id)}
                   />
                 ))}
               </div>
@@ -237,27 +248,6 @@ const Customize = () => {
           ))}
         </Tabs>
 
-        {selectedCount > 0 && (
-          <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg p-4">
-            <div className="container mx-auto flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  {selectedCount} room{selectedCount > 1 ? "s" : ""} selected
-                </p>
-                <p className="text-2xl font-bold">${totalPrice.toLocaleString()}</p>
-              </div>
-              <Button
-                size="lg"
-                onClick={handleAddToCart}
-                disabled={loading}
-                className="gap-2"
-              >
-                <ShoppingCart className="h-5 w-5" />
-                {loading ? "Adding..." : "Add to Cart"}
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

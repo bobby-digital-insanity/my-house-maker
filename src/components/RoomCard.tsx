@@ -1,21 +1,18 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
 import type { RoomStyle } from "@/lib/roomData";
 
 interface RoomCardProps {
   style: RoomStyle;
-  selected: boolean;
-  onSelect: () => void;
+  inCart: boolean;
+  onCartToggle: () => void;
 }
 
-const RoomCard = ({ style, selected, onSelect }: RoomCardProps) => {
+const RoomCard = ({ style, inCart, onCartToggle }: RoomCardProps) => {
   return (
     <Card 
-      className={`group cursor-pointer transition-all hover:shadow-lg ${
-        selected ? "ring-2 ring-accent shadow-lg" : ""
-      }`}
-      onClick={onSelect}
+      className="group transition-all hover:shadow-lg"
     >
       <CardContent className="p-0">
         <div className="relative aspect-[4/3] overflow-hidden rounded-t-lg">
@@ -24,11 +21,6 @@ const RoomCard = ({ style, selected, onSelect }: RoomCardProps) => {
             alt={style.name}
             className="object-cover w-full h-full transition-transform group-hover:scale-105"
           />
-          {selected && (
-            <div className="absolute top-3 right-3 h-8 w-8 rounded-full bg-accent flex items-center justify-center">
-              <Check className="h-5 w-5 text-accent-foreground" />
-            </div>
-          )}
         </div>
         <div className="p-4 space-y-2">
           <h3 className="font-semibold text-lg">{style.name}</h3>
@@ -38,14 +30,15 @@ const RoomCard = ({ style, selected, onSelect }: RoomCardProps) => {
               ${style.price.toLocaleString()}
             </span>
             <Button 
-              variant={selected ? "default" : "outline"}
-              size="sm"
+              variant={inCart ? "default" : "outline"}
+              size="icon"
               onClick={(e) => {
                 e.stopPropagation();
-                onSelect();
+                onCartToggle();
               }}
+              className="h-10 w-10"
             >
-              {selected ? "Selected" : "Select"}
+              <ShoppingCart className={`h-5 w-5 ${inCart ? "text-primary-foreground" : ""}`} />
             </Button>
           </div>
         </div>
