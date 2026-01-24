@@ -1,6 +1,11 @@
 // src/lib/supabase.ts - Updated to use your API instead of Supabase
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// API URL configuration:
+// - In development: uses http://localhost:3001
+// - In production: uses VITE_API_URL if set, otherwise tries to use same origin
+// For EC2: Set VITE_API_URL to your EC2 server URL (e.g., http://your-ec2-ip:3001 or http://your-domain.com:3001)
+const API_URL = import.meta.env.VITE_API_URL || 
+  (import.meta.env.DEV ? 'http://localhost:3001' : `${window.location.protocol}//${window.location.hostname}:3001`);
 
 export interface User {
   id: string;
