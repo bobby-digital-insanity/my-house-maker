@@ -1,6 +1,6 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Home, ShoppingCart, LogOut, User, Settings } from "lucide-react";
+import { Home, ShoppingCart, LogOut, User as UserIcon, Settings } from "lucide-react";
 import { authService } from "@/lib/supabase";
 import { toast } from "sonner";
 import {
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { User } from "@/lib/supabase";
+import { useEffect, useRef } from "react";
 
 interface NavbarProps {
   user: User | null;
@@ -21,6 +22,19 @@ interface NavbarProps {
 
 const Navbar = ({ user, cartCount = 0 }: NavbarProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const navRef = useRef<HTMLDivElement>(null);
+
+  // Prevent hover states during route transitions
+  useEffect(() => {
+    if (navRef.current) {
+      navRef.current.classList.add("no-hover");
+      const timer = setTimeout(() => {
+        navRef.current?.classList.remove("no-hover");
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [location.pathname]);
 
   const handleSignOut = async () => {
     const { error } = await authService.signOut();
@@ -42,21 +56,30 @@ const Navbar = ({ user, cartCount = 0 }: NavbarProps) => {
     return parts.length >= 2 ? parts.substring(0, 2).toUpperCase() : parts[0].toUpperCase();
   };
 
+  const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    // Prevent focus on navigation
+    const target = e.currentTarget;
+    if (target) {
+      // Blur after a tiny delay to prevent focus flash
+      setTimeout(() => target.blur(), 0);
+    }
+  };
+
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-2 font-semibold text-lg">
+        <Link to="/" className="flex items-center gap-2 font-semibold text-lg" onClick={handleLinkClick}>
           <Home className="h-5 w-5" />
           <span>DreamHome Builder</span>
         </Link>
 
-        <div className="flex items-center gap-4">
+        <div ref={navRef} className="flex items-center gap-4">
           {user ? (
             <>
-              <Link to="/customize">
+              <Link to="/customize" onClick={handleLinkClick} className="focus:outline-none">
                 <Button variant="ghost">Build Your Home</Button>
               </Link>
-              <Link to="/cart" className="relative">
+              <Link to="/cart" className="relative focus:outline-none" onClick={handleLinkClick}>
                 <Button variant="ghost" size="icon">
                   <ShoppingCart className="h-5 w-5" />
                   {cartCount > 0 && (
@@ -98,15 +121,26 @@ const Navbar = ({ user, cartCount = 0 }: NavbarProps) => {
               </DropdownMenu>
             </>
           ) : (
-            <Link to="/auth">
+            <Link to="/auth" onClick={handleLinkClick} className="focus:outline-none">
               <Button variant="default">
-                <User className="h-4 w-4 mr-2" />
+                <UserIcon className="h-4 w-4 mr-2" />
                 Sign In
               </Button>
             </Link>
           )}
         </div>
       </div>
+      <style>{`
+        .no-hover button:hover,
+        .no-hover a:hover button,
+        .no-hover a:focus button {
+          background-color: transparent !important;
+          color: inherit !important;
+        }
+        nav a:focus-visible {
+          outline: none;
+        }
+      `}</style>
     </nav>
   );
 };
