@@ -3,10 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Navbar from "@/components/Navbar";
-import { authService, cartService } from "@/lib/supabase";
+import { authService, cartService, type User } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Trash2, ShoppingBag } from "lucide-react";
-import type { User } from "@supabase/supabase-js";
 
 interface CartItem {
   id: string;

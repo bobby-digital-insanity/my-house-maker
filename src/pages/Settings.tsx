@@ -6,8 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Settings, MessageCircle } from "lucide-react";
-import { authService } from "@/lib/supabase";
-import type { User } from "@supabase/supabase-js";
+import { authService, type User } from "@/lib/supabase";
 import { useEffect } from "react";
 
 const SettingsPage = () => {

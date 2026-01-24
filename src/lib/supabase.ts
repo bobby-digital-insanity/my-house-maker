@@ -1,53 +1,201 @@
-import { supabase } from "@/integrations/supabase/client";
-import type { User, Session } from "@supabase/supabase-js";
+// src/lib/supabase.ts - Updated to use your API instead of Supabase
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+export interface User {
+  id: string;
+  email: string;
+  full_name?: string;
+}
+
+export interface Session {
+  access_token: string;
+  user: User;
+}
 
 export interface AuthState {
   user: User | null;
   session: Session | null;
 }
 
+// Helper to get auth token from localStorage
+const getToken = (): string | null => {
+  return localStorage.getItem('auth_token');
+};
+
+// Helper to set auth token
+const setToken = (token: string): void => {
+  localStorage.setItem('auth_token', token);
+};
+
+// Helper to remove auth token
+const removeToken = (): void => {
+  localStorage.removeItem('auth_token');
+};
+
+// Helper to get user from localStorage
+const getUser = (): User | null => {
+  const userStr = localStorage.getItem('auth_user');
+  return userStr ? JSON.parse(userStr) : null;
+};
+
+// Helper to set user in localStorage
+const setUser = (user: User): void => {
+  localStorage.setItem('auth_user', JSON.stringify(user));
+};
+
+// Helper to remove user from localStorage
+const removeUser = (): void => {
+  localStorage.removeItem('auth_user');
+};
+
 export const authService = {
   async signUp(email: string, password: string, fullName: string) {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          full_name: fullName,
+    try {
+      const response = await fetch(`${API_URL}/api/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      },
-    });
-    return { data, error };
+        body: JSON.stringify({ email, password, fullName }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return { data: null, error: { message: data.error || 'Signup failed' } };
+      }
+
+      // Store token and user
+      if (data.session?.access_token) {
+        setToken(data.session.access_token);
+      }
+      if (data.user) {
+        setUser(data.user);
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      return {
+        data: null,
+        error: { message: error instanceof Error ? error.message : 'Network error' },
+      };
+    }
   },
 
   async signIn(email: string, password: string) {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { data, error };
+    try {
+      const response = await fetch(`${API_URL}/api/auth/signin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        return { data: null, error: { message: data.error || 'Signin failed' } };
+      }
+
+      // Store token and user
+      if (data.session?.access_token) {
+        setToken(data.session.access_token);
+      }
+      if (data.user) {
+        setUser(data.user);
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      return {
+        data: null,
+        error: { message: error instanceof Error ? error.message : 'Network error' },
+      };
+    }
   },
 
   async signOut() {
-    const { error } = await supabase.auth.signOut();
-    return { error };
+    try {
+      const token = getToken();
+      if (token) {
+        await fetch(`${API_URL}/api/auth/signout`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+      }
+      removeToken();
+      removeUser();
+      return { error: null };
+    } catch (error) {
+      removeToken();
+      removeUser();
+      return { error: null }; // Always succeed on signout
+    }
   },
 
   async getSession() {
-    const { data, error } = await supabase.auth.getSession();
-    return { data, error };
+    try {
+      const token = getToken();
+      const user = getUser();
+
+      if (!token || !user) {
+        return { data: { session: null, user: null }, error: null };
+      }
+
+      // Verify token is still valid
+      const response = await fetch(`${API_URL}/api/auth/session`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        // Token invalid, clear storage
+        removeToken();
+        removeUser();
+        return { data: { session: null, user: null }, error: null };
+      }
+
+      const data = await response.json();
+      return { data, error: null };
+    } catch (error) {
+      return {
+        data: { session: null, user: null },
+        error: { message: error instanceof Error ? error.message : 'Network error' },
+      };
+    }
   },
 
   onAuthStateChange(callback: (session: Session | null, user: User | null) => void) {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        callback(session, session?.user ?? null);
+    // Poll for auth state changes (simpler than WebSocket for now)
+    let lastUser = getUser();
+    
+    const checkAuth = () => {
+      const currentUser = getUser();
+      if (currentUser?.id !== lastUser?.id) {
+        lastUser = currentUser;
+        const token = getToken();
+        callback(
+          token ? { access_token: token, user: currentUser! } : null,
+          currentUser
+        );
       }
-    );
-    return subscription;
+    };
+
+    // Check immediately
+    checkAuth();
+
+    // Check every 2 seconds
+    const interval = setInterval(checkAuth, 2000);
+
+    // Return subscription object with unsubscribe
+    return {
+      unsubscribe: () => clearInterval(interval),
+    };
   },
 };
 
@@ -75,12 +223,31 @@ export const cartService = {
       // Guest user - return localStorage cart
       return { data: this.getGuestCart(), error: null };
     }
-    
-    const { data, error } = await supabase
-      .from("cart_items")
-      .select("*")
-      .eq("user_id", userId);
-    return { data, error };
+
+    try {
+      const token = getToken();
+      if (!token) {
+        return { data: this.getGuestCart(), error: null };
+      }
+
+      const response = await fetch(`${API_URL}/api/cart`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        return { data: [], error: { message: 'Failed to fetch cart' } };
+      }
+
+      const result = await response.json();
+      return { data: result.data || [], error: null };
+    } catch (error) {
+      return {
+        data: [],
+        error: { message: error instanceof Error ? error.message : 'Network error' },
+      };
+    }
   },
 
   async addToCart(item: Omit<CartItem, "id">, userId?: string) {
@@ -93,12 +260,43 @@ export const cartService = {
       return { data: newItem, error: null };
     }
 
-    const { data, error } = await supabase
-      .from("cart_items")
-      .insert([item])
-      .select()
-      .single();
-    return { data, error };
+    try {
+      const token = getToken();
+      if (!token) {
+        // Fallback to guest cart
+        const cart = this.getGuestCart();
+        const newItem = { ...item, id: crypto.randomUUID(), user_id: "guest" };
+        cart.push(newItem);
+        this.setGuestCart(cart);
+        return { data: newItem, error: null };
+      }
+
+      const response = await fetch(`${API_URL}/api/cart`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          room_type: item.room_type,
+          style: item.style,
+          price: item.price,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return { data: null, error: { message: error.error || 'Failed to add to cart' } };
+      }
+
+      const result = await response.json();
+      return { data: result.data, error: null };
+    } catch (error) {
+      return {
+        data: null,
+        error: { message: error instanceof Error ? error.message : 'Network error' },
+      };
+    }
   },
 
   async removeFromCart(itemId: string, userId?: string) {
@@ -110,11 +308,33 @@ export const cartService = {
       return { error: null };
     }
 
-    const { error } = await supabase
-      .from("cart_items")
-      .delete()
-      .eq("id", itemId);
-    return { error };
+    try {
+      const token = getToken();
+      if (!token) {
+        // Fallback to guest cart
+        const cart = this.getGuestCart();
+        const filtered = cart.filter(item => item.id !== itemId);
+        this.setGuestCart(filtered);
+        return { error: null };
+      }
+
+      const response = await fetch(`${API_URL}/api/cart/${itemId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        return { error: { message: 'Failed to remove from cart' } };
+      }
+
+      return { error: null };
+    } catch (error) {
+      return {
+        error: { message: error instanceof Error ? error.message : 'Network error' },
+      };
+    }
   },
 
   async clearCart(userId?: string) {
@@ -124,11 +344,30 @@ export const cartService = {
       return { error: null };
     }
 
-    const { error } = await supabase
-      .from("cart_items")
-      .delete()
-      .eq("user_id", userId);
-    return { error };
+    try {
+      const token = getToken();
+      if (!token) {
+        localStorage.removeItem("guestCart");
+        return { error: null };
+      }
+
+      const response = await fetch(`${API_URL}/api/cart`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        return { error: { message: 'Failed to clear cart' } };
+      }
+
+      return { error: null };
+    } catch (error) {
+      return {
+        error: { message: error instanceof Error ? error.message : 'Network error' },
+      };
+    }
   },
 
   async migrateGuestCartToUser(userId: string) {

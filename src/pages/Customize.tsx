@@ -10,10 +10,9 @@ import Navbar from "@/components/Navbar";
 import { roomTypes } from "@/lib/roomData";
 import { manCaveTeams } from "@/lib/manCaveData";
 import { supabase } from "@/integrations/supabase/client";
-import { authService, cartService } from "@/lib/supabase";
+import { authService, cartService, type User } from "@/lib/supabase";
 import { toast } from "sonner";
 import { ShoppingCart, Sparkles } from "lucide-react";
-import type { User } from "@supabase/supabase-js";
 import type { RoomType } from "@/lib/roomData";
 
 const Customize = () => {

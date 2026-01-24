@@ -3,9 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
 import heroImage from "@/assets/hero-home.jpg";
-import { authService, cartService } from "@/lib/supabase";
+import { authService, cartService, type User } from "@/lib/supabase";
 import { Home, Palette, ShoppingCart, CheckCircle } from "lucide-react";
-import type { User } from "@supabase/supabase-js";
 
 const Index = () => {
   const navigate = useNavigate();

@@ -12,10 +12,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import type { User as SupabaseUser } from "@supabase/supabase-js";
+import type { User } from "@/lib/supabase";
 
 interface NavbarProps {
-  user: SupabaseUser | null;
+  user: User | null;
   cartCount?: number;
 }
 

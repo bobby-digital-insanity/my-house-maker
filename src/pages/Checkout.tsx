@@ -7,10 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Navbar from "@/components/Navbar";
-import { authService, cartService } from "@/lib/supabase";
+import { authService, cartService, type User } from "@/lib/supabase";
 import { toast } from "sonner";
 import { CheckCircle2, UserCircle, User as UserIcon, Sparkles } from "lucide-react";
-import type { User } from "@supabase/supabase-js";
 
 interface CartItem {
   id: string;

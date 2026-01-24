@@ -9,10 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import Navbar from "@/components/Navbar";
 import { supabase } from "@/integrations/supabase/client";
-import { authService, cartService } from "@/lib/supabase";
+import { authService, cartService, type User } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Sparkles, Loader2, ShoppingCart } from "lucide-react";
-import type { User } from "@supabase/supabase-js";
 import { roomTypes } from "@/lib/roomData";
 
 interface Recommendation {

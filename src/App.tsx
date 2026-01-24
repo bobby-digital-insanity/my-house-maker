@@ -16,8 +16,7 @@ import Checkout from "./pages/Checkout";
 // matching with the file name in the pages directory
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
-import { authService } from "@/lib/supabase";
-import type { User } from "@supabase/supabase-js";
+import { authService, type User } from "@/lib/supabase";
 import { MessageCircle } from "lucide-react";
 
 const queryClient = new QueryClient();
