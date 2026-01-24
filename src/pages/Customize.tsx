@@ -31,7 +31,7 @@ const Customize = () => {
   useEffect(() => {
     const loadUser = async () => {
       const { data } = await authService.getSession();
-      if (data.session) {
+      if (data?.session?.user) {
         setUser(data.session.user);
         loadCartCount(data.session.user.id);
         // Migrate guest cart if exists

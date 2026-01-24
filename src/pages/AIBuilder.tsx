@@ -151,7 +151,7 @@ const AIBuilder = () => {
   useEffect(() => {
     const loadUser = async () => {
       const { data } = await authService.getSession();
-      if (data.session) {
+      if (data?.session?.user) {
         setUser(data.session.user);
         loadCartCount(data.session.user.id);
       } else {

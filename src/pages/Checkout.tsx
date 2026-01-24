@@ -58,7 +58,7 @@ const Checkout = () => {
     const loadCheckout = async () => {
       const { data } = await authService.getSession();
       
-      if (data.session) {
+      if (data?.session?.user) {
         setUser(data.session.user);
         const { data: items } = await cartService.getCartItems(data.session.user.id);
         
@@ -107,7 +107,7 @@ const Checkout = () => {
         
         // Migrate guest cart to user account
         const { data } = await authService.getSession();
-        if (data.session) {
+        if (data?.session?.user) {
           await cartService.migrateGuestCartToUser(data.session.user.id);
           const { data: cartData } = await cartService.getCartItems(data.session.user.id);
           setCartItems(cartData || []);

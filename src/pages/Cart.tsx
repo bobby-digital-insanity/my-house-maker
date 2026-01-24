@@ -23,7 +23,7 @@ const Cart = () => {
   useEffect(() => {
     const loadCart = async () => {
       const { data } = await authService.getSession();
-      if (data.session) {
+      if (data?.session?.user) {
         setUser(data.session.user);
         await fetchCartItems(data.session.user.id);
       } else {
