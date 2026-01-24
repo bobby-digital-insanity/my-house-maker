@@ -13,17 +13,26 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { User } from "@/lib/supabase";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface NavbarProps {
   user: User | null;
   cartCount?: number;
 }
 
-const Navbar = ({ user, cartCount = 0 }: NavbarProps) => {
+// Helper to get user from localStorage synchronously
+const getStoredUser = (): User | null => {
+  if (typeof window === 'undefined') return null;
+  const userStr = localStorage.getItem('auth_user');
+  return userStr ? JSON.parse(userStr) : null;
+};
+
+const Navbar = ({ user: propUser, cartCount = 0 }: NavbarProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const navRef = useRef<HTMLDivElement>(null);
+  // Initialize with stored user to prevent flash
+  const [user, setUser] = useState<User | null>(() => propUser || getStoredUser());
 
   // Prevent hover states during route transitions
   useEffect(() => {
@@ -55,6 +64,32 @@ const Navbar = ({ user, cartCount = 0 }: NavbarProps) => {
     const parts = email.split("@")[0];
     return parts.length >= 2 ? parts.substring(0, 2).toUpperCase() : parts[0].toUpperCase();
   };
+
+  // Sync with prop user when it changes
+  useEffect(() => {
+    if (propUser !== undefined) {
+      setUser(propUser);
+    }
+  }, [propUser]);
+
+  // Also listen for auth state changes
+  useEffect(() => {
+    const subscription = authService.onAuthStateChange((session, user) => {
+      setUser(user);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Prevent hover states during route transitions
+  useEffect(() => {
+    if (navRef.current) {
+      navRef.current.classList.add("no-hover");
+      const timer = setTimeout(() => {
+        navRef.current?.classList.remove("no-hover");
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [location.pathname]);
 
   const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     // Prevent focus on navigation
