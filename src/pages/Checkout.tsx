@@ -11,6 +11,10 @@ import { authService, cartService, type User } from "@/lib/supabase";
 import { toast } from "sonner";
 import { CheckCircle2, UserCircle, User as UserIcon, Sparkles } from "lucide-react";
 
+// Get API URL (same as in supabase.ts)
+const API_URL = import.meta.env.VITE_API_URL || 
+  (import.meta.env.DEV ? 'http://localhost:3001' : `${window.location.protocol}//${window.location.hostname}:3001`);
+
 interface CartItem {
   id: string;
   room_type: string;
@@ -140,7 +144,7 @@ const Checkout = () => {
 
     // Call Node.js script via local server to log price to server console
     // This runs in the background and doesn't block the checkout flow
-    fetch('http://localhost:3001/log-checkout', {
+    fetch(`${API_URL}/log-checkout`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
