@@ -77,6 +77,8 @@ export const authService = {
       }
       if (data.user) {
         setUser(data.user);
+        // Trigger auth state change event
+        window.dispatchEvent(new Event('authStateChanged'));
       }
 
       return { data, error: null };
@@ -110,6 +112,8 @@ export const authService = {
       }
       if (data.user) {
         setUser(data.user);
+        // Trigger auth state change event
+        window.dispatchEvent(new Event('authStateChanged'));
       }
 
       return { data, error: null };
@@ -195,11 +199,13 @@ export const authService = {
     
     const checkAuth = () => {
       const currentUser = getUser();
+      const token = getToken();
+      
+      // If user changed, trigger callback
       if (currentUser?.id !== lastUser?.id) {
         lastUser = currentUser;
-        const token = getToken();
         callback(
-          token ? { access_token: token, user: currentUser! } : null,
+          token && currentUser ? { access_token: token, user: currentUser } : null,
           currentUser
         );
       }
@@ -208,12 +214,31 @@ export const authService = {
     // Check immediately
     checkAuth();
 
-    // Check every 2 seconds
+    // Also listen for storage events (for same-tab updates)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'auth_user' || e.key === 'auth_token') {
+        checkAuth();
+      }
+    };
+    
+    // Listen for custom event (for same-tab updates)
+    const handleCustomStorageChange = () => {
+      checkAuth();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('authStateChanged', handleCustomStorageChange);
+
+    // Check every 2 seconds as fallback
     const interval = setInterval(checkAuth, 2000);
 
     // Return subscription object with unsubscribe
     return {
-      unsubscribe: () => clearInterval(interval),
+      unsubscribe: () => {
+        clearInterval(interval);
+        window.removeEventListener('storage', handleStorageChange);
+        window.removeEventListener('authStateChanged', handleCustomStorageChange);
+      },
     };
   },
 };
