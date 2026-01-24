@@ -4,8 +4,25 @@
 // - In development: uses http://localhost:3001
 // - In production: uses VITE_API_URL if set, otherwise tries to use same origin
 // For EC2: Set VITE_API_URL to your EC2 server URL (e.g., http://your-ec2-ip:3001 or http://your-domain.com:3001)
-const API_URL = import.meta.env.VITE_API_URL || 
-  (import.meta.env.DEV ? 'http://localhost:3001' : `${window.location.protocol}//${window.location.hostname}:3001`);
+// Note: If VITE_API_URL is "http://localhost:3001" in production, we override it to use the current hostname
+const getApiUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  
+  // In development, always use localhost
+  if (import.meta.env.DEV) {
+    return 'http://localhost:3001';
+  }
+  
+  // In production, if VITE_API_URL is localhost, use current hostname instead
+  if (envUrl && envUrl.includes('localhost')) {
+    return `${window.location.protocol}//${window.location.hostname}:3001`;
+  }
+  
+  // Otherwise use the env URL or fallback to current hostname
+  return envUrl || `${window.location.protocol}//${window.location.hostname}:3001`;
+};
+
+const API_URL = getApiUrl();
 
 export interface User {
   id: string;

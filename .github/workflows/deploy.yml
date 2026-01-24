@@ -30,7 +30,16 @@ jobs:
             cd /home/ec2-user/my-house-maker
             git pull origin main
             npm install
-            # Build the frontend
+            # Get the current public IP dynamically
+            PUBLIC_IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4)
+            echo "Current EC2 IP: $PUBLIC_IP"
+            # Update .env with current IP (or create if doesn't exist)
+            if grep -q "VITE_API_URL" .env; then
+              sed -i "s|VITE_API_URL=.*|VITE_API_URL=\"http://${PUBLIC_IP}:3001\"|" .env
+            else
+              echo "VITE_API_URL=\"http://${PUBLIC_IP}:3001\"" >> .env
+            fi
+            # Build the frontend with the correct API URL
             npm run build
             # Restart API process (or start if it doesn't exist)
             pm2 restart MyHouseMaker-API 2>/dev/null || pm2 start server.js --name MyHouseMaker-API
