@@ -183,10 +183,21 @@ export const authService = {
       const data = await response.json();
       
       // Make sure we have both session and user
-      if (data?.session?.user) {
+      // API returns: { user: {...}, session: { access_token: "..." } }
+      if (data?.user && data?.session?.access_token) {
         // Update stored user data with fresh data from server
         setUser(data.user);
-        return { data, error: null };
+        // Return in the format expected by the app: { session: { user: {...}, access_token: "..." }, user: {...} }
+        return { 
+          data: { 
+            session: { 
+              access_token: data.session.access_token, 
+              user: data.user 
+            }, 
+            user: data.user 
+          }, 
+          error: null 
+        };
       } else {
         // Invalid response format, clear storage
         removeToken();
