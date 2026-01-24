@@ -1,4 +1,11 @@
 import pg from 'pg';
+import dotenv from 'dotenv';
+
+// Load environment variables if not already loaded
+if (!process.env.DB_PASSWORD) {
+  dotenv.config();
+}
+
 const { Pool } = pg;
 
 const pool = new Pool({

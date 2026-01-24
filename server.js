@@ -14,9 +14,17 @@ import dotenv from 'dotenv';
 // Load environment variables FIRST, before importing anything that needs them
 dotenv.config();
 
-import pool from './src/lib/db.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+
+// Dynamic import for db.js AFTER dotenv.config() runs
+let pool;
+import('./src/lib/db.js').then(module => {
+  pool = module.default;
+}).catch(err => {
+  console.error('Failed to load database module:', err);
+  process.exit(1);
+});
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
