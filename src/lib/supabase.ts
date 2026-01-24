@@ -101,23 +101,34 @@ export const authService = {
       });
 
       const data = await response.json();
+      console.log('SignIn API response:', data);
 
       if (!response.ok) {
+        console.error('SignIn failed:', data.error);
         return { data: null, error: { message: data.error || 'Signin failed' } };
       }
 
       // Store token and user
       if (data.session?.access_token) {
         setToken(data.session.access_token);
+        console.log('✅ Token stored');
+      } else {
+        console.warn('⚠️ No access_token in response');
       }
+      
       if (data.user) {
+        console.log('Storing user:', data.user);
         setUser(data.user);
+        console.log('✅ User stored, verifying:', getUser());
         // Trigger auth state change event
         window.dispatchEvent(new Event('authStateChanged'));
+      } else {
+        console.error('❌ No user in response. Full response:', data);
       }
 
       return { data, error: null };
     } catch (error) {
+      console.error('SignIn error:', error);
       return {
         data: null,
         error: { message: error instanceof Error ? error.message : 'Network error' },
