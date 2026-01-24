@@ -14,7 +14,7 @@ const Index = () => {
   useEffect(() => {
     const loadUser = async () => {
       const { data } = await authService.getSession();
-      if (data.session) {
+      if (data?.session?.user) {
         setUser(data.session.user);
         loadCartCount(data.session.user.id);
       }
@@ -24,7 +24,7 @@ const Index = () => {
 
     const subscription = authService.onAuthStateChange((session, user) => {
       setUser(user);
-      if (user) loadCartCount(user.id);
+      if (user?.id) loadCartCount(user.id);
       else setCartCount(0);
     });
 
