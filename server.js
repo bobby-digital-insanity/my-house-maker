@@ -6,9 +6,12 @@
  */
 
 import express from 'express';
+import https from 'https';
+import http from 'http';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import fs from 'fs';
 import dotenv from 'dotenv';
 
 // Load environment variables FIRST, before importing anything that needs them
@@ -296,6 +299,23 @@ app.post('/log-checkout', (req, res) => {
   res.json({ success: true, message: 'Checkout logged' });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on http://0.0.0.0:${PORT}`);
-});
+// HTTPS configuration
+const certPath = process.env.SSL_CERT_PATH;
+const keyPath = process.env.SSL_KEY_PATH;
+const useHttps = certPath && keyPath && fs.existsSync(certPath) && fs.existsSync(keyPath);
+
+if (useHttps) {
+  const options = {
+    cert: fs.readFileSync(certPath),
+    key: fs.readFileSync(keyPath),
+  };
+  
+  https.createServer(options, app).listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on https://0.0.0.0:${PORT}`);
+  });
+} else {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on http://0.0.0.0:${PORT}`);
+    console.log('Note: To enable HTTPS, set SSL_CERT_PATH and SSL_KEY_PATH environment variables');
+  });
+}
