@@ -196,7 +196,8 @@ jobs:
             # Restart Frontend process (or start if it doesn't exist)
             echo "=== Restarting Frontend Server ==="
             pm2 delete MyHouseMaker-Frontend 2>/dev/null || true
-            pm2 start npm --name MyHouseMaker-Frontend -- run preview --log-date-format "YYYY-MM-DD HH:mm:ss Z"
+            # Use preview:prod script which explicitly sets host to 0.0.0.0 for CloudFront access
+            pm2 start npm --name MyHouseMaker-Frontend -- run preview:prod --log-date-format "YYYY-MM-DD HH:mm:ss Z"
             
             # Save PM2 configuration
             pm2 save
