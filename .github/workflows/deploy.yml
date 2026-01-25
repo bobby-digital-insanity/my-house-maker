@@ -20,7 +20,7 @@ jobs:
 
       # Step 2.2: Install AWS CLI (if credentials are provided for dynamic IP lookup)
       - name: Install AWS CLI
-        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' && secrets.EC2_INSTANCE_ID != '' }}
+        continue-on-error: true
         run: |
           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
           unzip awscliv2.zip
@@ -31,15 +31,22 @@ jobs:
       # Option A: Use AWS credentials to get the instance IP dynamically
       - name: Get EC2 IP from AWS (if credentials provided)
         id: get-ec2-ip
-        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' && secrets.EC2_INSTANCE_ID != '' }}
+        continue-on-error: true
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
         run: |
+          # Check if required secrets are provided
+          if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] || [ -z "$EC2_INSTANCE_ID" ]; then
+            echo "AWS credentials or EC2_INSTANCE_ID not provided, skipping dynamic IP lookup"
+            exit 0
+          fi
+          
           # Get the public IP of the instance
           PUBLIC_IP=$(aws ec2 describe-instances \
-            --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
+            --instance-ids "$EC2_INSTANCE_ID" \
             --query 'Reservations[0].Instances[0].PublicIpAddress' \
             --output text)
           
@@ -50,7 +57,6 @@ jobs:
           
           echo "EC2_PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_OUTPUT
           echo "Found EC2 IP: $PUBLIC_IP"
-        continue-on-error: true
 
       # Step 2.4: Deploy to the EC2 instance
       # NOTE: If you get "i/o timeout" errors, check:
