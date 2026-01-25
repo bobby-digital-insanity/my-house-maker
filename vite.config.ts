@@ -33,7 +33,12 @@ export default defineConfig(({ mode }) => {
     preview: {
       host: "::", // Listen on all interfaces (required for CloudFront/EC2)
       port: 4173, // Explicitly set preview port
-      // Removed allowedHosts to allow all hosts (required for CloudFront which may send different Host headers)
+      allowedHosts: [
+        "myhomebuilder.space",
+        "api.myhomebuilder.space",
+        "ec2-3-20-240-94.us-east-2.compute.amazonaws.com",
+        ".us-east-2.compute.amazonaws.com", // Allows any EC2 DNS in us-east-2 region
+      ],
       // Only use HTTPS if explicitly enabled via environment variable
       // CloudFront typically connects via HTTP, so HTTPS may cause connection issues
       // @ts-expect-error - Vite supports https: true for self-signed certs, but types are strict
