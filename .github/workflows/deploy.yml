@@ -195,10 +195,22 @@ jobs:
             
             # Restart Frontend process (or start if it doesn't exist)
             echo "=== Restarting Frontend Server ==="
+            # Stop and delete more forcefully to ensure clean restart
+            pm2 stop MyHouseMaker-Frontend 2>/dev/null || true
             pm2 delete MyHouseMaker-Frontend 2>/dev/null || true
+            sleep 2  # Wait for process to fully stop
+            
+            # Verify vite.config.ts doesn't have allowedHosts restriction
+            echo "=== Verifying vite.config.ts ==="
+            if grep -q "allowedHosts:" vite.config.ts && ! grep -q "Removed allowedHosts" vite.config.ts; then
+              echo "WARNING: allowedHosts found in vite.config.ts - this may cause CloudFront issues"
+            else
+              echo "✓ vite.config.ts verified - allowedHosts removed"
+            fi
+            
             # Use preview:prod script which explicitly sets host to 0.0.0.0 for CloudFront access
             pm2 start npm --name MyHouseMaker-Frontend -- run preview:prod --log-date-format "YYYY-MM-DD HH:mm:ss Z"
-            
+
             # Save PM2 configuration
             pm2 save
             
@@ -217,6 +229,10 @@ jobs:
             
             echo "Checking Frontend server on port 4173..."
             curl -f http://localhost:4173 || echo "WARNING: Frontend server not responding"
+            
+            # Test with Host header to verify allowedHosts is not blocking
+            echo "Testing Frontend server with Host header (myhomebuilder.space)..."
+            curl -f -H "Host: myhomebuilder.space" http://localhost:4173/ && echo "✓ Host header test passed" || echo "WARNING: Host header test failed - allowedHosts may still be blocking"
             
             # Show which ports are listening
             echo "=== Listening Ports ==="
