@@ -18,10 +18,39 @@ const getApiUrl = () => {
     return `${window.location.protocol}//${window.location.hostname}:3001`;
   }
   
+  // If page is served over HTTPS, ensure API URL uses HTTPS to avoid mixed content errors
+  if (window.location.protocol === 'https:') {
+    // If we have an env URL with HTTP, convert it to HTTPS
+    if (envUrl && envUrl.startsWith('http://')) {
+      // Extract hostname from the URL
+      try {
+        const url = new URL(envUrl);
+        // If it's an IP address or EC2 DNS, use api subdomain
+        if (url.hostname.match(/^\d+\.\d+\.\d+\.\d+$/) || url.hostname.includes('compute.amazonaws.com')) {
+          // Use api subdomain for myhomebuilder.space
+          return 'https://api.myhomebuilder.space';
+        }
+        // Otherwise convert HTTP to HTTPS
+        return envUrl.replace('http://', 'https://');
+      } catch {
+        // If URL parsing fails, use api subdomain
+        return 'https://api.myhomebuilder.space';
+      }
+    }
+    
+    // If no env URL or env URL is already HTTPS, try to use api subdomain
+    const hostname = window.location.hostname;
+    if (hostname === 'myhomebuilder.space' || hostname.endsWith('.myhomebuilder.space')) {
+      return 'https://api.myhomebuilder.space';
+    }
+    
+    // Fallback: use same hostname with HTTPS
+    return `https://${hostname}:3001`;
+  }
+  
   // Otherwise use the env URL or fallback to current hostname
   return envUrl || `${window.location.protocol}//${window.location.hostname}:3001`;
 };
-
 const API_URL = getApiUrl();
 
 export interface User {
