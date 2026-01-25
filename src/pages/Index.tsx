@@ -137,7 +137,7 @@ const Index = () => {
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-4xl font-bold mb-6">Ready to Start Building??</h2>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Join thousands of homeowners who have created their dream spaces with our intuitive customization platform
+            Join thousands of homeowners who have created their dream spaces with our intuitive customization platform!
           </p>
           {user ? (
             <Button
