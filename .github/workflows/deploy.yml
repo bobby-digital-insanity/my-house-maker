@@ -56,19 +56,55 @@ jobs:
             exit 0
           fi
           
-          # Get the public IP of the instance
+          # Get instance details for debugging
+          echo "Querying EC2 instance: $EC2_INSTANCE_ID"
+          INSTANCE_STATE=$(aws ec2 describe-instances \
+            --instance-ids "$EC2_INSTANCE_ID" \
+            --query 'Reservations[0].Instances[0].State.Name' \
+            --output text 2>/dev/null || echo "unknown")
+          echo "Instance state: $INSTANCE_STATE"
+          
+          # Try to get public IP address (works for instances with auto-assigned public IPs)
           PUBLIC_IP=$(aws ec2 describe-instances \
             --instance-ids "$EC2_INSTANCE_ID" \
             --query 'Reservations[0].Instances[0].PublicIpAddress' \
-            --output text)
+            --output text 2>/dev/null || echo "")
           
+          # If no public IP found, try to get Elastic IP association
           if [ "$PUBLIC_IP" = "None" ] || [ -z "$PUBLIC_IP" ]; then
-            echo "ERROR: Could not get public IP. Instance may not have a public IP or is not running."
-            exit 1
+            echo "No PublicIpAddress found, checking for Elastic IP..."
+            # Get the network interface ID
+            NETWORK_INTERFACE_ID=$(aws ec2 describe-instances \
+              --instance-ids "$EC2_INSTANCE_ID" \
+              --query 'Reservations[0].Instances[0].NetworkInterfaces[0].NetworkInterfaceId' \
+              --output text 2>/dev/null || echo "")
+            
+            if [ -n "$NETWORK_INTERFACE_ID" ] && [ "$NETWORK_INTERFACE_ID" != "None" ]; then
+              # Try to get Elastic IP from the network interface
+              ELASTIC_IP=$(aws ec2 describe-network-interfaces \
+                --network-interface-ids "$NETWORK_INTERFACE_ID" \
+                --query 'NetworkInterfaces[0].Association.PublicIp' \
+                --output text 2>/dev/null || echo "")
+              
+              if [ -n "$ELASTIC_IP" ] && [ "$ELASTIC_IP" != "None" ]; then
+                PUBLIC_IP="$ELASTIC_IP"
+                echo "Found Elastic IP: $PUBLIC_IP"
+              fi
+            fi
+          fi
+          
+          # If still no IP found, log warning but don't fail (will fall back to EC2_HOST secret)
+          if [ "$PUBLIC_IP" = "None" ] || [ -z "$PUBLIC_IP" ]; then
+            echo "WARNING: Could not get public IP from AWS. Instance state: $INSTANCE_STATE"
+            echo "Will fall back to EC2_HOST secret. If this persists, check:"
+            echo "  1. Instance is running (not stopped/terminated)"
+            echo "  2. Instance has a public IP or Elastic IP assigned"
+            echo "  3. EC2_INSTANCE_ID secret is correct"
+            exit 0  # Don't fail, just fall back to EC2_HOST
           fi
           
           echo "EC2_PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_OUTPUT
-          echo "Found EC2 IP: $PUBLIC_IP"
+          echo "Successfully found EC2 IP: $PUBLIC_IP"
 
       # Step 2.4: Deploy to the EC2 instance
       # NOTE: If you get "i/o timeout" errors, check:
