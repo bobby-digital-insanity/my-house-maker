@@ -18,13 +18,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2.2: Install AWS CLI (if credentials are provided for dynamic IP lookup)
+      # Step 2.2: Install/Update AWS CLI (if credentials are provided for dynamic IP lookup)
       - name: Install AWS CLI
         continue-on-error: true
         run: |
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip awscliv2.zip
-          sudo ./aws/install
+          # Check if AWS CLI is already installed
+          if command -v aws &> /dev/null; then
+            echo "AWS CLI already installed, updating..."
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip -q awscliv2.zip
+            sudo ./aws/install --update
+          else
+            echo "Installing AWS CLI..."
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip -q awscliv2.zip
+            sudo ./aws/install
+          fi
+          # Clean up
+          rm -rf awscliv2.zip aws/
+          aws --version
 
       # Step 2.3: Get EC2 instance IP dynamically (if AWS credentials are provided)
       # This prevents breakage if the EC2 IP changes
