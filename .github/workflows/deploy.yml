@@ -18,13 +18,60 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2.2: Deploy to the EC2 instance
+      # Step 2.2: Install AWS CLI (if credentials are provided for dynamic IP lookup)
+      - name: Install AWS CLI
+        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' && secrets.EC2_INSTANCE_ID != '' }}
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          sudo ./aws/install
+
+      # Step 2.3: Get EC2 instance IP dynamically (if AWS credentials are provided)
+      # This prevents breakage if the EC2 IP changes
+      # Option A: Use AWS credentials to get the instance IP dynamically
+      - name: Get EC2 IP from AWS (if credentials provided)
+        id: get-ec2-ip
+        if: ${{ secrets.AWS_ACCESS_KEY_ID != '' && secrets.AWS_SECRET_ACCESS_KEY != '' && secrets.EC2_INSTANCE_ID != '' }}
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION || 'us-east-1' }}
+        run: |
+          # Get the public IP of the instance
+          PUBLIC_IP=$(aws ec2 describe-instances \
+            --instance-ids ${{ secrets.EC2_INSTANCE_ID }} \
+            --query 'Reservations[0].Instances[0].PublicIpAddress' \
+            --output text)
+          
+          if [ "$PUBLIC_IP" = "None" ] || [ -z "$PUBLIC_IP" ]; then
+            echo "ERROR: Could not get public IP. Instance may not have a public IP or is not running."
+            exit 1
+          fi
+          
+          echo "EC2_PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_OUTPUT
+          echo "Found EC2 IP: $PUBLIC_IP"
+        continue-on-error: true
+
+      # Step 2.4: Deploy to the EC2 instance
+      # NOTE: If you get "i/o timeout" errors, check:
+      # 1. EC2 Security Group allows SSH (port 22) from 0.0.0.0/0 or GitHub Actions IPs
+      # 2. EC2_HOST secret contains the PUBLIC IP or public DNS name (not private IP)
+      #    OR set up AWS credentials (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, EC2_INSTANCE_ID) for dynamic IP lookup
+      # 3. EC2 instance is running (not stopped)
+      # 4. EC2_USERNAME is correct (usually "ec2-user" for Amazon Linux, "ubuntu" for Ubuntu)
+      # 5. EC2_SSH_KEY contains the full private key (including -----BEGIN and -----END lines)
+      # 
+      # RECOMMENDED: Use an Elastic IP for your EC2 instance to prevent IP changes
+      # This is the most reliable solution and doesn't require AWS credentials in GitHub
       - name: Deploy to EC2
-        uses: appleboy/ssh-action@master # A pre-built action for SSH commands
+        uses: appleboy/ssh-action@v1.0.3 # Use a specific version for better reliability
         with:
-          host: ${{ secrets.EC2_HOST }} # Use the secret we created
-          username: ${{ secrets.EC2_USERNAME }} # Use the secret we created
-          key: ${{ secrets.EC2_SSH_KEY }} # Use the secret we created
+          host: ${{ steps.get-ec2-ip.outputs.EC2_PUBLIC_IP || secrets.EC2_HOST }} # Use dynamic IP if available, fallback to secret
+          username: ${{ secrets.EC2_USERNAME }} # Usually "ec2-user" or "ubuntu"
+          key: ${{ secrets.EC2_SSH_KEY }} # Full private key content
+          port: ${{ secrets.EC2_PORT || 22 }} # SSH port (default 22)
+          timeout: 60s # Connection timeout
+          command_timeout: 10m # Command execution timeout
           # The commands to run on the EC2 server
           script: |
             cd /home/ec2-user/my-house-maker
