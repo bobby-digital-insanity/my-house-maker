@@ -106,11 +106,43 @@ jobs:
           echo "EC2_PUBLIC_IP=$PUBLIC_IP" >> $GITHUB_OUTPUT
           echo "Successfully found EC2 IP: $PUBLIC_IP"
 
-      # Step 2.4: Deploy to the EC2 instance
+      # Step 2.4: Display which IP will be used for deployment
+      - name: Determine EC2 IP for deployment
+        id: determine-ip
+        run: |
+          DYNAMIC_IP="${{ steps.get-ec2-ip.outputs.EC2_PUBLIC_IP }}"
+          FALLBACK_IP="${{ secrets.EC2_HOST }}"
+          
+          if [ -n "$DYNAMIC_IP" ] && [ "$DYNAMIC_IP" != "" ]; then
+            echo "Using dynamically retrieved IP from AWS: $DYNAMIC_IP"
+            echo "DEPLOYMENT_IP=$DYNAMIC_IP" >> $GITHUB_OUTPUT
+            echo "IP_SOURCE=dynamic" >> $GITHUB_OUTPUT
+          elif [ -n "$FALLBACK_IP" ] && [ "$FALLBACK_IP" != "" ]; then
+            echo "Using IP from EC2_HOST secret: $FALLBACK_IP"
+            echo "DEPLOYMENT_IP=$FALLBACK_IP" >> $GITHUB_OUTPUT
+            echo "IP_SOURCE=secret" >> $GITHUB_OUTPUT
+          else
+            echo "ERROR: No IP available from dynamic lookup or EC2_HOST secret!"
+            echo "Please set EC2_HOST secret or configure AWS credentials for dynamic lookup."
+            exit 1
+          fi
+
+      # Step 2.5: Deploy to the EC2 instance
+      # 
+      # IP SOURCE OPTIONS:
+      # Option 1 (SIMPLEST): Set EC2_HOST secret to your EC2 public IP (e.g., "3.139.210.250")
+      #   - Go to: Settings → Secrets and variables → Actions → New repository secret
+      #   - Name: EC2_HOST, Value: your EC2 public IP address
+      #   - Works immediately, no AWS credentials needed
+      #
+      # Option 2 (DYNAMIC): Set AWS credentials for automatic IP lookup
+      #   - Set secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, EC2_INSTANCE_ID, AWS_REGION
+      #   - Requires AWS IAM user with ec2:DescribeInstances permission
+      #   - Automatically updates if instance IP changes
+      #
       # NOTE: If you get "i/o timeout" errors, check:
       # 1. EC2 Security Group allows SSH (port 22) from 0.0.0.0/0 or GitHub Actions IPs
       # 2. EC2_HOST secret contains the PUBLIC IP or public DNS name (not private IP)
-      #    OR set up AWS credentials (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, EC2_INSTANCE_ID) for dynamic IP lookup
       # 3. EC2 instance is running (not stopped)
       # 4. EC2_USERNAME is correct (usually "ec2-user" for Amazon Linux, "ubuntu" for Ubuntu)
       # 5. EC2_SSH_KEY contains the full private key (including -----BEGIN and -----END lines)
@@ -128,7 +160,7 @@ jobs:
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.3 # Use a specific version for better reliability
         with:
-          host: ${{ steps.get-ec2-ip.outputs.EC2_PUBLIC_IP || secrets.EC2_HOST }} # Use dynamic IP if available, fallback to secret
+          host: ${{ steps.determine-ip.outputs.DEPLOYMENT_IP }} # IP determined in previous step (dynamic or secret)
           username: ${{ secrets.EC2_USERNAME }} # Usually "ec2-user" or "ubuntu"
           key: ${{ secrets.EC2_SSH_KEY }} # Full private key content
           port: ${{ secrets.EC2_PORT || 22 }} # SSH port (default 22)
