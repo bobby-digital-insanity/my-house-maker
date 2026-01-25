@@ -69,6 +69,14 @@ jobs:
       # 
       # RECOMMENDED: Use an Elastic IP for your EC2 instance to prevent IP changes
       # This is the most reliable solution and doesn't require AWS credentials in GitHub
+      #
+      # CLOUDFRONT 504 ERRORS: If you see "504 Gateway Timeout" from CloudFront, check:
+      # 1. CloudFront origin points to EC2 public IP or DNS on the correct port (4173 for Vite preview)
+      # 2. EC2 Security Group allows HTTP/HTTPS (ports 80/443) from CloudFront IPs (or 0.0.0.0/0)
+      # 3. PM2 processes are running: SSH to EC2 and run "pm2 list" and "pm2 logs"
+      # 4. Services are listening: Check with "netstat -tlnp | grep 4173" or "ss -tlnp | grep 4173"
+      # 5. CloudFront origin timeout settings (default 30s, may need to increase)
+      # 6. CloudFront health check path is correct (usually "/" or "/index.html")
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1.0.3 # Use a specific version for better reliability
         with:
@@ -94,8 +102,43 @@ jobs:
             fi
             # Build the frontend with the correct API URL
             npm run build
+            
+            # Show current PM2 status
+            echo "=== PM2 Status Before Restart ==="
+            pm2 list
+            pm2 logs --lines 10 --nostream
+            
             # Restart API process (or start if it doesn't exist)
-            pm2 restart MyHouseMaker-API 2>/dev/null || pm2 start server.js --name MyHouseMaker-API
+            echo "=== Restarting API Server ==="
+            pm2 delete MyHouseMaker-API 2>/dev/null || true
+            pm2 start server.js --name MyHouseMaker-API --log-date-format "YYYY-MM-DD HH:mm:ss Z"
+            
             # Restart Frontend process (or start if it doesn't exist)
-            pm2 restart MyHouseMaker-Frontend 2>/dev/null || pm2 start npm --name MyHouseMaker-Frontend -- run preview
+            echo "=== Restarting Frontend Server ==="
+            pm2 delete MyHouseMaker-Frontend 2>/dev/null || true
+            pm2 start npm --name MyHouseMaker-Frontend -- run preview --log-date-format "YYYY-MM-DD HH:mm:ss Z"
+            
+            # Save PM2 configuration
             pm2 save
+            
+            # Wait a moment for services to start
+            sleep 5
+            
+            # Show PM2 status after restart
+            echo "=== PM2 Status After Restart ==="
+            pm2 list
+            pm2 logs --lines 20 --nostream
+            
+            # Health check - verify services are responding
+            echo "=== Health Checks ==="
+            echo "Checking API server on port 3001..."
+            curl -f http://localhost:3001/api/auth/session || echo "WARNING: API server not responding"
+            
+            echo "Checking Frontend server on port 4173..."
+            curl -f http://localhost:4173 || echo "WARNING: Frontend server not responding"
+            
+            # Show which ports are listening
+            echo "=== Listening Ports ==="
+            netstat -tlnp 2>/dev/null | grep -E ':(3001|4173|8080)' || ss -tlnp | grep -E ':(3001|4173|8080)'
+            
+            echo "=== Deployment Complete ==="

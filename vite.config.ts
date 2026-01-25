@@ -31,9 +31,13 @@ export default defineConfig(({ mode }) => {
       https: httpsConfig,
     },
     preview: {
+      host: "::", // Listen on all interfaces (required for CloudFront/EC2)
+      port: 4173, // Explicitly set preview port
       allowedHosts: ["api.myhomebuilder.space"],
+      // Only use HTTPS if explicitly enabled via environment variable
+      // CloudFront typically connects via HTTP, so HTTPS may cause connection issues
       // @ts-expect-error - Vite supports https: true for self-signed certs, but types are strict
-      https: httpsConfig,
+      https: process.env.VITE_PREVIEW_HTTPS === 'true' ? httpsConfig : false,
     },
     plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
     resolve: {
