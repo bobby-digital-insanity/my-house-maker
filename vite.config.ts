@@ -34,6 +34,7 @@ export default defineConfig(({ mode }) => {
       host: "::", // Listen on all interfaces (required for CloudFront/EC2)
       port: 4173, // Explicitly set preview port
       allowedHosts: [
+        "myhomebuilder.space",
         "api.myhomebuilder.space",
         "ec2-3-20-240-94.us-east-2.compute.amazonaws.com",
         ".us-east-2.compute.amazonaws.com", // Allows any EC2 DNS in us-east-2 region
