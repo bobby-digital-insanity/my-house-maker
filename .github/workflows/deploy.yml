@@ -200,16 +200,8 @@ jobs:
             pm2 delete MyHouseMaker-Frontend 2>/dev/null || true
             sleep 2  # Wait for process to fully stop
             
-            # Verify vite.config.ts doesn't have allowedHosts restriction
-            echo "=== Verifying vite.config.ts ==="
-            if grep -q "allowedHosts:" vite.config.ts && ! grep -q "Removed allowedHosts" vite.config.ts; then
-              echo "WARNING: allowedHosts found in vite.config.ts - this may cause CloudFront issues"
-            else
-              echo "✓ vite.config.ts verified - allowedHosts removed"
-            fi
-            
-            # Start frontend preview server (preview:prod binds to 0.0.0.0 for CloudFront access)
-            pm2 start npm --name "MyHouseMaker-Frontend" -- run preview:prod --log-date-format "YYYY-MM-DD HH:mm:ss Z"
+            # Start frontend preview server (using preview script - vite.config.ts handles host binding)
+            pm2 start npm --name "MyHouseMaker-Frontend" -- run preview --log-date-format "YYYY-MM-DD HH:mm:ss Z"
 
             # Save PM2 configuration
             pm2 save
