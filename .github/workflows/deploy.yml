@@ -208,8 +208,8 @@ jobs:
               echo "✓ vite.config.ts verified - allowedHosts removed"
             fi
             
-            # Start frontend preview server
-            pm2 start npm --name "MyHouseMaker-Frontend" -- run preview --log-date-format "YYYY-MM-DD HH:mm:ss Z"
+            # Start frontend preview server (preview:prod binds to 0.0.0.0 for CloudFront access)
+            pm2 start npm --name "MyHouseMaker-Frontend" -- run preview:prod --log-date-format "YYYY-MM-DD HH:mm:ss Z"
 
             # Save PM2 configuration
             pm2 save
