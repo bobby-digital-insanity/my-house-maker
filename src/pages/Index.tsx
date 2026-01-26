@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
+import { useFlags, useLDClient } from 'launchdarkly-react-client-sdk';
 import heroImage from "@/assets/hero-home.jpg";
 import { authService, cartService, type User } from "@/lib/supabase";
 import { Home, Palette, ShoppingCart, CheckCircle } from "lucide-react";
@@ -10,6 +11,10 @@ const Index = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [cartCount, setCartCount] = useState(0);
+  // useFlags is used to get the flags from the LaunchDarkly SDK
+  const flags = useFlags();
+  // useLDClient is used to track custom events/metrics
+  const ldClient = useLDClient();
 
   useEffect(() => {
     const loadUser = async () => {
@@ -49,11 +54,12 @@ const Index = () => {
       title: "Full Customization",
       description: "Mix and match styles to create your unique dream home",
     },
-    {
-      icon: <ShoppingCart className="h-8 w-8" />,
-      title: "Feature Flags",
-      description: "Easy selection and checkout process from start to finish",
-    },
+    // Feature flag: p-2-ff-secret-door
+    ...(flags['p-2-ff-secret-door'] ? [{
+        icon: <ShoppingCart className="h-8 w-8" />,
+        title: "Feature Flags",
+        description: "Easy selection and checkout process from start to finish",
+    }] : []),
     {
       icon: <CheckCircle className="h-8 w-8" />,
       title: "Our Modern Approach to Technology",
