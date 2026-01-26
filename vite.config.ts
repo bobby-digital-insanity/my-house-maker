@@ -33,8 +33,7 @@ export default defineConfig(({ mode }) => {
     preview: {
       host: "::", // Listen on all interfaces (required for CloudFront/EC2)
       port: 4173, // Explicitly set preview port
-      // Removed allowedHosts restriction - CloudFront handles security
-      // This allows CloudFront to access the preview server without host header issues
+      allowedHosts: true, // Allow all hosts - CloudFront handles security
       // Only use HTTPS if explicitly enabled via environment variable
       // CloudFront typically connects via HTTP, so HTTPS may cause connection issues
       // @ts-expect-error - Vite supports https: true for self-signed certs, but types are strict
