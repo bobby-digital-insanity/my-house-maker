@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
@@ -43,7 +43,7 @@ const Index = () => {
     setCartCount(data?.length || 0);
   };
 
-  const features = [
+  const features = useMemo(() => [
     {
       icon: <Home className="h-8 w-8" />,
       title: "Premium Designs? yes!",
@@ -65,7 +65,7 @@ const Index = () => {
       title: "Our Modern Approach to Technology",
       description: "We use LaunchDarkly with CI/CD and SDLC best practices to ensure the highest quality of code and deployment.",
     },
-  ];
+  ], [flags]);
 
   return (
     <div className="min-h-screen bg-background">
