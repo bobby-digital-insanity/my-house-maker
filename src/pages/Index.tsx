@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import Navbar from "@/components/Navbar";
@@ -43,7 +43,7 @@ const Index = () => {
     setCartCount(data?.length || 0);
   };
 
-  const features = useMemo(() => [
+  const features = [
     {
       icon: <Home className="h-8 w-8" />,
       title: "Premium Designs? yes!",
@@ -54,18 +54,17 @@ const Index = () => {
       title: "Full Customization",
       description: "Mix and match styles to create your unique dream home",
     },
-    // Feature flag: p-2-ff-secret-door
-    ...(flags['p-2-ff-secret-door'] ? [{
+    {
         icon: <ShoppingCart className="h-8 w-8" />,
         title: "Feature Flags",
         description: "Easy selection and checkout process from start to finish",
-    }] : []),
+    },
     {
       icon: <CheckCircle className="h-8 w-8" />,
       title: "Our Modern Approach to Technology",
       description: "We use LaunchDarkly with CI/CD and SDLC best practices to ensure the highest quality of code and deployment.",
     },
-  ], [flags]);
+  ];
 
   return (
     <div className="min-h-screen bg-background">

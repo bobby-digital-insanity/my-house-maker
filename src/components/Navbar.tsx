@@ -177,6 +177,10 @@ const Navbar = ({ user: propUser, cartCount = 0 }: NavbarProps) => {
                       <LogOut className="h-4 w-4 mr-2" />
                       Logout
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleSignOut} className="text-red-600 focus:text-red-600">
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Logout
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
