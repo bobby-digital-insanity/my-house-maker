@@ -169,6 +169,18 @@ jobs:
           # The commands to run on the EC2 server
           script: |
             cd /home/ec2-user/my-house-maker
+            
+            # Check if there are any uncommitted changes
+            echo "=== Checking for local changes ==="
+            if [ -n "$(git status --porcelain)" ]; then
+              echo "Local changes detected. Stashing changes before pull..."
+              git stash push -m "Auto-stashed by GitHub Actions deployment on $(date +%Y-%m-%d_%H:%M:%S)"
+              echo "Changes stashed successfully"
+            else
+              echo "No local changes detected. Proceeding with pull..."
+            fi
+            
+            # Pull latest changes from main branch
             git pull origin main
             npm install
             # Get the current public IP dynamically (using external service since metadata service may not work)
