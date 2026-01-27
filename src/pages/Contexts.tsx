@@ -10,15 +10,18 @@ import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Settings } from "lucide-react";
 import { authService, type User } from "@/lib/supabase";
+import { useLDClient, useFlags } from "launchdarkly-react-client-sdk";
 
 const Contexts = () => {
   const navigate = useNavigate();
+  const ldClient = useLDClient();
+  const flags = useFlags();
   const [user, setUser] = useState<User | null>(null);
   const [selectedContext, setSelectedContext] = useState<string | null>(null);
   const [showDropdowns, setShowDropdowns] = useState({
     anna: false,
     jesse: false,
-    rob: false,
+    farengar: false,
   });
   const [enabledFields, setEnabledFields] = useState({
     anna: {
@@ -41,7 +44,7 @@ const Contexts = () => {
       street: true,
       city: true,
     },
-    rob: {
+    farengar: {
       userKey: true,
       name: true,
       email: true,
@@ -56,7 +59,7 @@ const Contexts = () => {
   const [liveShowDropdowns, setLiveShowDropdowns] = useState({
     anna: false,
     jesse: false,
-    rob: false,
+    farengar: false,
   });
   const [liveEnabledFields, setLiveEnabledFields] = useState({
     anna: {
@@ -69,13 +72,15 @@ const Contexts = () => {
       organization: true,
       city: true,
     },
-    rob: {
+    farengar: {
       jobFunction: true,
       organization: true,
       city: true,
     },
   });
   const [liveSelectedContext, setLiveSelectedContext] = useState<string | null>(null);
+  // Access card value from LD — set after identify() completes so UI matches current context
+  const [accessCardValue, setAccessCardValue] = useState<string>('basic-access');
 
   // Context data
   const contextData = {
@@ -89,7 +94,7 @@ const Contexts = () => {
       organization: "Global Health Services",
       jobFunction: "nurse",
     },
-    rob: {
+    farengar: {
       city: "Whiterun",
       organization: "Dragonsreach (Court of the Jarl of Whiterun)",
       jobFunction: "court wizard",
@@ -190,6 +195,160 @@ const Contexts = () => {
       subscription.unsubscribe();
     };
   }, []);
+
+  // Update LaunchDarkly context when a persona is selected in Live Example
+  useEffect(() => {
+    if (!ldClient) return;
+
+    // If no persona is selected, revert to original user context
+    if (!liveSelectedContext) {
+      if (user) {
+        const originalContext = {
+          kind: 'user',
+          key: user.email || user.id,
+          email: user.email,
+          name: user.email?.split('@')[0],
+          anonymous: false,
+          premium: true,
+        };
+        console.log("🔄 [Context Debug] Reverting LaunchDarkly context to original user");
+        ldClient.identify(originalContext).then(() => {
+          const detail = ldClient.variationDetail('multi-context-homepage-access-card', 'basic-access');
+          const value = typeof detail.value === 'string' ? detail.value : String(detail.value ?? 'basic-access');
+          setAccessCardValue(value);
+        });
+      } else {
+        setAccessCardValue('basic-access');
+      }
+      return;
+    }
+
+    const personaData = contextData[liveSelectedContext as keyof typeof contextData];
+    if (!personaData) return;
+
+    // Build multi-context based on selected persona
+    let multiContext: any = {
+      kind: "multi",
+    };
+
+    // User context
+    if (liveSelectedContext === "anna") {
+      multiContext.user = {
+        key: "user-key-123abc",
+        name: "Anna",
+        email: "anna@globalhealth.com",
+        jobFunction: personaData.jobFunction,
+      };
+      multiContext.organization = {
+        key: "org-key-123abc",
+        name: personaData.organization,
+        address: {
+          street: "123 Main Street",
+          city: personaData.city,
+        },
+      };
+    } else if (liveSelectedContext === "jesse") {
+      multiContext.user = {
+        key: "user-key-456def",
+        name: "Jesse",
+        email: "jesse@globalhealth.com",
+        jobFunction: personaData.jobFunction,
+      };
+      multiContext.organization = {
+        key: "org-key-123abc",
+        name: personaData.organization,
+        address: {
+          street: "123 Main Street",
+          city: personaData.city,
+        },
+      };
+    } else if (liveSelectedContext === "farengar") {
+      multiContext.user = {
+        key: "farengar-secret-fire",
+        name: "Farengar Secret-Fire",
+        email: "farengar@dragonsreach.com",
+        jobFunction: personaData.jobFunction,
+      };
+      multiContext.organization = {
+        key: "whiterun-hold",
+        name: personaData.organization,
+        address: {
+          street: "1 Cloud District Way",
+          city: personaData.city,
+        },
+      };
+    }
+
+    // Update LaunchDarkly context with detailed logging
+    console.log("🔄 [Context Debug] Updating LaunchDarkly context");
+    console.log("👤 [Context Debug] Selected Persona:", liveSelectedContext);
+    console.log("📋 [Context Debug] Full Context:", JSON.stringify(multiContext, null, 2));
+    console.log("📊 [Context Debug] Context Attributes:", {
+      jobFunction: personaData.jobFunction,
+      organization: personaData.organization,
+      city: personaData.city,
+    });
+    
+    ldClient.identify(multiContext).then(() => {
+      const detail = ldClient.variationDetail('multi-context-homepage-access-card', 'basic-access');
+      const value = typeof detail.value === 'string' ? detail.value : String(detail.value ?? 'basic-access');
+      setAccessCardValue(value);
+      console.log("🚩 [Flag Debug] After identify — access card:", value, detail);
+    });
+  }, [ldClient, liveSelectedContext, user]);
+
+  // Sync access card from LD when client is ready (e.g. initial load or flag changes from outside)
+  useEffect(() => {
+    if (!ldClient) return;
+    const detail = ldClient.variationDetail('multi-context-homepage-access-card', 'basic-access');
+    const value = typeof detail.value === 'string' ? detail.value : String(detail.value ?? 'basic-access');
+    setAccessCardValue(value);
+  }, [ldClient, flags['multi-context-homepage-access-card']]);
+
+  // Log all flags when they change
+  useEffect(() => {
+    console.log("🚩 [All Flags Debug] ========================================");
+    console.log("🚩 [All Flags Debug] All Current Flag Values:");
+    Object.keys(flags).forEach((flagKey) => {
+      const flagValue = flags[flagKey];
+      if (ldClient) {
+        try {
+          // Try to get detailed information for each flag
+          const flagDetail = ldClient.variationDetail(flagKey, null);
+          console.log(`🚩 [All Flags Debug]   ${flagKey}:`, {
+            value: flagValue,
+            detail: {
+              variationIndex: flagDetail.variationIndex,
+              reason: flagDetail.reason,
+            },
+          });
+        } catch (e) {
+          // If variationDetail fails, just log the value
+          console.log(`🚩 [All Flags Debug]   ${flagKey}:`, flagValue);
+        }
+      } else {
+        console.log(`🚩 [All Flags Debug]   ${flagKey}:`, flagValue);
+      }
+    });
+    console.log("🚩 [All Flags Debug] ========================================");
+  }, [flags, ldClient]);
+
+  // Log initial flag values when component mounts and ldClient is ready
+  useEffect(() => {
+    if (!ldClient) return;
+    
+    console.log("🚩 [Initial Flags] ========================================");
+    console.log("🚩 [Initial Flags] LaunchDarkly Client Ready - Initial Flag Values:");
+    console.log("🚩 [Initial Flags] All Flags:", flags);
+    
+    // Get detailed info for the main flag we care about
+    const mainFlagDetail = ldClient.variationDetail('multi-context-homepage-access-card', 'basic-access');
+    console.log("🚩 [Initial Flags] Main Flag 'multi-context-homepage-access-card':", {
+      value: flags['multi-context-homepage-access-card'],
+      detail: mainFlagDetail,
+    });
+    console.log("🚩 [Initial Flags] ========================================");
+  }, [ldClient]); // Only run when ldClient becomes available
 
   return (
     <div className="min-h-screen bg-background">
@@ -660,10 +819,10 @@ const Contexts = () => {
                 </Collapsible>
               </div>
 
-              {/* Rob */}
+              {/* Farengar */}
               <div
                 className={`p-4 rounded-lg border-2 transition-colors ${
-                  selectedContext === "rob"
+                  selectedContext === "farengar"
                     ? "bg-green-50 border-green-500 dark:bg-green-950 dark:border-green-600"
                     : "bg-card border-border"
                 }`}
@@ -672,36 +831,36 @@ const Contexts = () => {
                   <h3 className="text-lg font-semibold">Farengar</h3>
                   <Button
                     size="sm"
-                    variant={selectedContext === "rob" ? "default" : "outline"}
-                    onClick={() => setSelectedContext(selectedContext === "rob" ? null : "rob")}
+                    variant={selectedContext === "farengar" ? "default" : "outline"}
+                    onClick={() => setSelectedContext(selectedContext === "farengar" ? null : "farengar")}
                   >
-                    {selectedContext === "rob" ? "Selected" : "Select"}
+                    {selectedContext === "farengar" ? "Selected" : "Select"}
                   </Button>
                 </div>
                 <div className="flex items-center justify-between mb-2">
-                  <Label htmlFor="rob-dropdown" className="text-sm">
+                  <Label htmlFor="farengar-dropdown" className="text-sm">
                     Show Details
                   </Label>
                   <Switch
-                    id="rob-dropdown"
-                    checked={showDropdowns.rob}
+                    id="farengar-dropdown"
+                    checked={showDropdowns.farengar}
                     onCheckedChange={(checked) =>
-                      setShowDropdowns({ ...showDropdowns, rob: checked })
+                      setShowDropdowns({ ...showDropdowns, farengar: checked })
                     }
                   />
                 </div>
-                <Collapsible open={showDropdowns.rob}>
+                <Collapsible open={showDropdowns.farengar}>
                   <CollapsibleContent className="mt-2 space-y-2 text-sm">
                     <div className="bg-muted p-3 rounded-md space-y-0">
                       <div className="space-y-1 pb-2 border-b">
                         <div className="flex items-center justify-between">
                           <span className="font-medium text-muted-foreground">User Key:</span>
                           <Switch
-                            checked={enabledFields.rob.userKey}
+                            checked={enabledFields.farengar.userKey}
                             onCheckedChange={(checked) =>
                               setEnabledFields({
                                 ...enabledFields,
-                                rob: { ...enabledFields.rob, userKey: checked },
+                                farengar: { ...enabledFields.farengar, userKey: checked },
                               })
                             }
                           />
@@ -712,11 +871,11 @@ const Contexts = () => {
                         <div className="flex items-center justify-between">
                           <span className="font-medium text-muted-foreground">Name:</span>
                           <Switch
-                            checked={enabledFields.rob.name}
+                            checked={enabledFields.farengar.name}
                             onCheckedChange={(checked) =>
                               setEnabledFields({
                                 ...enabledFields,
-                                rob: { ...enabledFields.rob, name: checked },
+                                farengar: { ...enabledFields.farengar, name: checked },
                               })
                             }
                           />
@@ -727,11 +886,11 @@ const Contexts = () => {
                         <div className="flex items-center justify-between">
                           <span className="font-medium text-muted-foreground">Email:</span>
                           <Switch
-                            checked={enabledFields.rob.email}
+                            checked={enabledFields.farengar.email}
                             onCheckedChange={(checked) =>
                               setEnabledFields({
                                 ...enabledFields,
-                                rob: { ...enabledFields.rob, email: checked },
+                                farengar: { ...enabledFields.farengar, email: checked },
                               })
                             }
                           />
@@ -742,11 +901,11 @@ const Contexts = () => {
                         <div className="flex items-center justify-between">
                           <span className="font-medium text-muted-foreground">Job Function:</span>
                           <Switch
-                            checked={enabledFields.rob.jobFunction}
+                            checked={enabledFields.farengar.jobFunction}
                             onCheckedChange={(checked) =>
                               setEnabledFields({
                                 ...enabledFields,
-                                rob: { ...enabledFields.rob, jobFunction: checked },
+                                farengar: { ...enabledFields.farengar, jobFunction: checked },
                               })
                             }
                           />
@@ -758,11 +917,11 @@ const Contexts = () => {
                         <div className="flex items-center justify-between">
                           <span className="font-medium text-muted-foreground">Org Key:</span>
                           <Switch
-                            checked={enabledFields.rob.orgKey}
+                            checked={enabledFields.farengar.orgKey}
                             onCheckedChange={(checked) =>
                               setEnabledFields({
                                 ...enabledFields,
-                                rob: { ...enabledFields.rob, orgKey: checked },
+                                farengar: { ...enabledFields.farengar, orgKey: checked },
                               })
                             }
                           />
@@ -773,11 +932,11 @@ const Contexts = () => {
                         <div className="flex items-center justify-between">
                           <span className="font-medium text-muted-foreground">Organization:</span>
                           <Switch
-                            checked={enabledFields.rob.organization}
+                            checked={enabledFields.farengar.organization}
                             onCheckedChange={(checked) =>
                               setEnabledFields({
                                 ...enabledFields,
-                                rob: { ...enabledFields.rob, organization: checked },
+                                farengar: { ...enabledFields.farengar, organization: checked },
                               })
                             }
                           />
@@ -788,11 +947,11 @@ const Contexts = () => {
                         <div className="flex items-center justify-between">
                           <span className="font-medium text-muted-foreground">Street:</span>
                           <Switch
-                            checked={enabledFields.rob.street}
+                            checked={enabledFields.farengar.street}
                             onCheckedChange={(checked) =>
                               setEnabledFields({
                                 ...enabledFields,
-                                rob: { ...enabledFields.rob, street: checked },
+                                farengar: { ...enabledFields.farengar, street: checked },
                               })
                             }
                           />
@@ -803,11 +962,11 @@ const Contexts = () => {
                         <div className="flex items-center justify-between">
                           <span className="font-medium text-muted-foreground">City:</span>
                           <Switch
-                            checked={enabledFields.rob.city}
+                            checked={enabledFields.farengar.city}
                             onCheckedChange={(checked) =>
                               setEnabledFields({
                                 ...enabledFields,
-                                rob: { ...enabledFields.rob, city: checked },
+                                farengar: { ...enabledFields.farengar, city: checked },
                               })
                             }
                           />
@@ -972,7 +1131,7 @@ const Contexts = () => {
               {/* Farengar */}
               <div
                 className={`p-4 rounded-lg border-2 transition-colors ${
-                  liveSelectedContext === "rob"
+                  liveSelectedContext === "farengar"
                     ? "bg-green-50 border-green-500 dark:bg-green-950 dark:border-green-600"
                     : "bg-card border-border"
                 }`}
@@ -981,25 +1140,25 @@ const Contexts = () => {
                   <h3 className="text-lg font-semibold">Farengar</h3>
                   <Button
                     size="sm"
-                    variant={liveSelectedContext === "rob" ? "default" : "outline"}
-                    onClick={() => setLiveSelectedContext(liveSelectedContext === "rob" ? null : "rob")}
+                    variant={liveSelectedContext === "farengar" ? "default" : "outline"}
+                    onClick={() => setLiveSelectedContext(liveSelectedContext === "farengar" ? null : "farengar")}
                   >
-                    {liveSelectedContext === "rob" ? "Selected" : "Select"}
+                    {liveSelectedContext === "farengar" ? "Selected" : "Select"}
                   </Button>
                 </div>
                 <div className="flex items-center justify-between mb-2">
-                  <Label htmlFor="live-rob-dropdown" className="text-sm">
+                  <Label htmlFor="live-farengar-dropdown" className="text-sm">
                     Show Details
                   </Label>
                   <Switch
-                    id="live-rob-dropdown"
-                    checked={liveShowDropdowns.rob}
+                    id="live-farengar-dropdown"
+                    checked={liveShowDropdowns.farengar}
                     onCheckedChange={(checked) =>
-                      setLiveShowDropdowns({ ...liveShowDropdowns, rob: checked })
+                      setLiveShowDropdowns({ ...liveShowDropdowns, farengar: checked })
                     }
                   />
                 </div>
-                <Collapsible open={liveShowDropdowns.rob}>
+                <Collapsible open={liveShowDropdowns.farengar}>
                   <CollapsibleContent className="mt-2 space-y-2 text-sm">
                     <div className="bg-muted p-3 rounded-md space-y-0">
                       <div className="space-y-1 py-2 border-b">
@@ -1022,97 +1181,117 @@ const Contexts = () => {
           </CardContent>
         </Card>
 
-        {/* Welcome Card */}
-        {liveSelectedContext && (
-          <Card className="mt-6">
-            <CardContent className="pt-6">
-              {liveSelectedContext === "anna" && (
-                <div className="space-y-6">
-                  <div className="flex items-center gap-4">
-                    <div className="text-4xl">🧑‍⚕️</div>
-                    <div>
-                      <h2 className="text-2xl font-bold">Anna</h2>
-                      <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                        <div>Job Function: doctor</div>
-                        <div>Organization: Global Health Services</div>
-                        <div>City: Springfield</div>
+        {/* Welcome Card - Controlled by LaunchDarkly Feature Flag */}
+        <Card className="mt-6">
+          <CardContent className="pt-6">
+            {accessCardValue === 'clinical-insights' && (
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-4">
+                        <div className="text-4xl">🧑‍⚕️</div>
+                        <div>
+                          <h2 className="text-2xl font-bold">Anna</h2>
+                          <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                            <div>Job Function: doctor</div>
+                            <div>Organization: Global Health Services</div>
+                            <div>City: Springfield</div>
+                          </div>
+                        </div>
+                      </div>
+                      <Separator />
+                      <div className="space-y-4">
+                        <h3 className="text-xl font-semibold">🩺 Clinical Insights Enabled</h3>
+                        <p className="text-muted-foreground">
+                          You have access to all advanced patient analytics and clinical decision support tools for Global Health Services in Springfield.
+                        </p>
+                        <Button className="w-full sm:w-auto">
+                          View Patient Dashboard
+                        </Button>
                       </div>
                     </div>
-                  </div>
-                  <Separator />
-                  <div className="space-y-4">
-                    <h3 className="text-xl font-semibold">🩺 Clinical Insights Enabled</h3>
-                    <p className="text-muted-foreground">
-                      You have access to all advanced patient analytics and clinical decision support tools for Global Health Services in Springfield.
-                    </p>
-                    <Button className="w-full sm:w-auto">
-                      View Patient Dashboard
-                    </Button>
-                  </div>
-                </div>
-              )}
-              
-              {liveSelectedContext === "jesse" && (
-                <div className="space-y-6">
-                  <div className="flex items-center gap-4">
-                    <div className="text-4xl">🧑‍⚕️</div>
-                    <div>
-                      <h2 className="text-2xl font-bold">Jesse</h2>
-                      <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                        <div>Job Function: nurse</div>
-                        <div>Organization: Global Health Services</div>
-                        <div>City: Springfield</div>
+                  )}
+            {accessCardValue === 'care-team-overview' && (
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-4">
+                        <div className="text-4xl">🧑‍⚕️</div>
+                        <div>
+                          <h2 className="text-2xl font-bold">Jesse</h2>
+                          <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                            <div>Job Function: nurse</div>
+                            <div>Organization: Global Health Services</div>
+                            <div>City: Springfield</div>
+                          </div>
+                        </div>
+                      </div>
+                      <Separator />
+                      <div className="space-y-4">
+                        <h3 className="text-xl font-semibold">🧾 Care Team Overview</h3>
+                        <p className="text-muted-foreground">
+                          You can view your assigned patients' summaries and care plans for your Springfield facility at Global Health Services.
+                        </p>
+                        <Button className="w-full sm:w-auto">
+                          View Care Plans
+                        </Button>
                       </div>
                     </div>
-                  </div>
-                  <Separator />
-                  <div className="space-y-4">
-                    <h3 className="text-xl font-semibold">🧾 Care Team Overview</h3>
-                    <p className="text-muted-foreground">
-                      You can view your assigned patients' summaries and care plans for your Springfield facility at Global Health Services.
-                    </p>
-                    <Button className="w-full sm:w-auto">
-                      View Care Plans
-                    </Button>
-                  </div>
-                </div>
-              )}
-              
-              {liveSelectedContext === "rob" && (
-                <div className="space-y-6">
-                  <div className="flex items-center gap-4">
-                    <div className="text-4xl">🧙</div>
-                    <div>
-                      <h2 className="text-2xl font-bold">Farengar</h2>
-                      <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-                        <div>Job Function: court wizard</div>
-                        <div>Organization: Dragonsreach (Court of the Jarl of Whiterun)</div>
-                        <div>City: Whiterun</div>
+                  )}
+            {accessCardValue === 'arcane-research' && (
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-4">
+                        <div className="text-4xl">🧙</div>
+                        <div>
+                          <h2 className="text-2xl font-bold">Farengar</h2>
+                          <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                            <div>Job Function: court wizard</div>
+                            <div>Organization: Dragonsreach (Court of the Jarl of Whiterun)</div>
+                            <div>City: Whiterun</div>
+                          </div>
+                        </div>
+                      </div>
+                      <Separator />
+                      <div className="space-y-4">
+                        <h3 className="text-xl font-semibold">🔥 Arcane Research Authorized</h3>
+                        <p className="text-muted-foreground">
+                          You have been granted access to experimental spell research and dragon-related findings within Dragonsreach.
+                        </p>
+                        <div className="rounded-lg overflow-hidden border">
+                          <img
+                            src="/48e7d0d3-aa9c-4041-8c5d-128843ae89ff.png"
+                            alt="Arcane research workspace with magical symbols and mystical artifacts"
+                            className="w-full h-auto"
+                          />
+                        </div>
+                        <Button className="w-full sm:w-auto">
+                          Review Arcane Tomes
+                        </Button>
                       </div>
                     </div>
-                  </div>
-                  <Separator />
-                  <div className="space-y-4">
-                    <h3 className="text-xl font-semibold">🔥 Arcane Research Authorized</h3>
-                    <p className="text-muted-foreground">
-                      You have been granted access to experimental spell research and dragon-related findings within Dragonsreach.
-                    </p>
-                    <div className="rounded-lg overflow-hidden border">
-                      <img 
-                        src="/48e7d0d3-aa9c-4041-8c5d-128843ae89ff.png" 
-                        alt="Arcane research workspace with magical symbols and mystical artifacts"
-                        className="w-full h-auto"
-                      />
+                  )}
+            {((accessCardValue === 'basic-access') ||
+              (accessCardValue !== 'clinical-insights' && accessCardValue !== 'care-team-overview' && accessCardValue !== 'arcane-research')) && (
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-4">
+                        <div className="text-4xl">👤</div>
+                        <div>
+                          <h2 className="text-2xl font-bold">{user?.email?.split('@')[0] || 'User'}</h2>
+                          <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                            <div>Basic Access</div>
+                            <div className="text-xs text-muted-foreground/70">
+                              Flag value: {accessCardValue}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <Separator />
+                      <div className="space-y-4">
+                        <h3 className="text-xl font-semibold">Welcome</h3>
+                        <p className="text-muted-foreground">
+                          You have basic access to the application. Select a persona above to see different access levels based on context attributes.
+                        </p>
+                      </div>
                     </div>
-                    <Button className="w-full sm:w-auto">
-                      Review Arcane Tomes
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+                  )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
