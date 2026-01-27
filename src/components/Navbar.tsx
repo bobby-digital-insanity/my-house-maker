@@ -171,11 +171,7 @@ const Navbar = ({ user: propUser, cartCount = 0 }: NavbarProps) => {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={settings}>
                       <Settings className="h-4 w-4 mr-2" />
-                      Settings
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={handleSignOut} className="text-red-600 focus:text-red-600">
-                      <LogOut className="h-4 w-4 mr-2" />
-                      Logout
+                      Admin Settings
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleSignOut} className="text-red-600 focus:text-red-600">
                       <LogOut className="h-4 w-4 mr-2" />

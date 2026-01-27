@@ -22,13 +22,18 @@ export default defineConfig(({ mode }) => {
   };
 
   const httpsConfig = getHttpsConfig();
+  
+  // For local development, use HTTP and localhost unless HTTPS is explicitly requested
+  const useHttps = process.env.VITE_USE_HTTPS === 'true';
+  const serverHost = process.env.VITE_HOST || (useHttps ? "::" : "localhost");
 
   return {
     server: {
-      host: "::",
+      host: serverHost,
       port: 8080,
+      // Only use HTTPS if explicitly enabled via environment variable
       // @ts-expect-error - Vite supports https: true for self-signed certs, but types are strict
-      https: httpsConfig,
+      https: useHttps ? httpsConfig : false,
     },
     preview: {
       host: "::", // Listen on all interfaces (required for CloudFront/EC2)

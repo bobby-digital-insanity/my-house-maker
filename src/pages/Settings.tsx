@@ -1,15 +1,18 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLDClient, useFlags } from "launchdarkly-react-client-sdk";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Settings, MessageCircle } from "lucide-react";
+import { Settings, MessageCircle, ArrowRight } from "lucide-react";
 import { authService, type User } from "@/lib/supabase";
 import { useEffect } from "react";
 
 const SettingsPage = () => {
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   
   // UI Toggle States (these will be connected to feature flags later)
@@ -75,6 +78,34 @@ console.log('PremiumSupport', hasPremiumSupport);
         </div>
 
         <div className="space-y-6">
+
+          {/* Context Preferences */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Context Preferences</CardTitle>
+              <CardDescription>
+                Customize the context of the application
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="context-preferences">Context Preferences</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Manage and customize context settings for the application
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/contexts")}
+                  className="flex items-center gap-2"
+                >
+                  Open Contexts
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
           {/* Display Preferences */}
           <Card>
             <CardHeader>

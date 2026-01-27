@@ -15,6 +15,7 @@ import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
 // matching with the file name in the pages directory
 import Settings from "./pages/Settings";
+import Contexts from "./pages/Contexts";
 import NotFound from "./pages/NotFound";
 import { authService, type User } from "@/lib/supabase";
 import { MessageCircle } from "lucide-react";
@@ -159,6 +160,7 @@ const AppContent = () => {
             <Route path="/cart" element={<Cart />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/contexts" element={<Contexts />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
