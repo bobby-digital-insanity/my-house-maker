@@ -60,6 +60,11 @@ const Contexts = () => {
     anna: false,
     jesse: false,
     farengar: false,
+    windows: false,
+    mac: false,
+    mobile: false,
+    jsonPayload1: false,
+    jsonPayload2: false,
   });
   const [liveEnabledFields, setLiveEnabledFields] = useState({
     anna: {
@@ -81,6 +86,15 @@ const Contexts = () => {
   const [liveSelectedContext, setLiveSelectedContext] = useState<string | null>(null);
   // Access card value from LD — set after identify() completes so UI matches current context
   const [accessCardValue, setAccessCardValue] = useState<string>('basic-access');
+  // Device context value for download message (1=Windows, 2=Mac, 3=Mobile)
+  const [deviceContext, setDeviceContext] = useState<number | null>(null);
+  // JSON payload from p-4-json-payload flag
+  const [jsonPayload, setJsonPayload] = useState<{
+    ctaText: string;
+    enabled: boolean;
+    showBanner: boolean;
+    variant: string;
+  } | null>(null);
 
   // Context data
   const contextData = {
@@ -98,6 +112,21 @@ const Contexts = () => {
       city: "Whiterun",
       organization: "Dragonsreach (Court of the Jarl of Whiterun)",
       jobFunction: "court wizard",
+    },
+    windows: {
+      device: "windows",
+    },
+    mac: {
+      device: "mac",
+    },
+    mobile: {
+      device: "mobile",
+    },
+    jsonPayload1: {
+      userType: "premium",
+    },
+    jsonPayload2: {
+      userType: "standard",
     },
   };
 
@@ -162,6 +191,9 @@ const Contexts = () => {
     if (!selectedContext) return false;
     
     const context = contextData[selectedContext as keyof typeof contextData];
+    // Skip device contexts and JSON payload contexts for this function (they don't have city/organization/jobFunction)
+    if ('device' in context || 'userType' in context) return false;
+    
     const enabled = enabledFields[selectedContext as keyof typeof enabledFields];
     const condition = boxConditions[boxIndex];
 
@@ -213,12 +245,16 @@ const Contexts = () => {
         };
         console.log("🔄 [Context Debug] Reverting LaunchDarkly context to original user");
         ldClient.identify(originalContext).then(() => {
+          setDeviceContext(null);
+          setJsonPayload(null);
           const detail = ldClient.variationDetail('multi-context-homepage-access-card', 'basic-access');
           const value = typeof detail.value === 'string' ? detail.value : String(detail.value ?? 'basic-access');
           setAccessCardValue(value);
         });
       } else {
         setAccessCardValue('basic-access');
+        setDeviceContext(null);
+        setJsonPayload(null);
       }
       return;
     }
@@ -231,20 +267,140 @@ const Contexts = () => {
       kind: "multi",
     };
 
-    // User context
+    // Handle JSON payload contexts (jsonPayload1, jsonPayload2)
+    if (liveSelectedContext === "jsonPayload1" || liveSelectedContext === "jsonPayload2") {
+      const userType = liveSelectedContext === "jsonPayload1" ? "premium" : "standard";
+      
+      multiContext.user = {
+        key: `user-${liveSelectedContext}`,
+        name: `${userType.charAt(0).toUpperCase() + userType.slice(1)} User`,
+        email: `user@${userType}.com`,
+        userType: userType,
+      };
+      
+      console.log("🔄 [Context Debug] Updating LaunchDarkly context for JSON payload");
+      console.log("👤 [Context Debug] Selected User:", liveSelectedContext, "User Type:", userType);
+      console.log("📋 [Context Debug] Full Context:", JSON.stringify(multiContext, null, 2));
+      
+      ldClient.identify(multiContext).then(() => {
+        // Clear device context for JSON payload contexts
+        setDeviceContext(null);
+        
+        // Get JSON payload from LaunchDarkly flag evaluation
+        try {
+          const jsonPayloadDetail = ldClient.variationDetail('p-4-json-payload', null);
+          if (jsonPayloadDetail.value && typeof jsonPayloadDetail.value === 'object') {
+            const payload = jsonPayloadDetail.value as {
+              ctaText?: string;
+              enabled?: boolean;
+              showBanner?: boolean;
+              variant?: string;
+            };
+            setJsonPayload({
+              ctaText: payload.ctaText || '',
+              enabled: payload.enabled ?? false,
+              showBanner: payload.showBanner ?? false,
+              variant: payload.variant || '',
+            });
+            console.log("🚩 [Flag Debug] JSON payload from LaunchDarkly:", payload);
+          } else {
+            setJsonPayload(null);
+            console.log("⚠️ [JSON Payload Debug] LaunchDarkly returned invalid JSON payload:", jsonPayloadDetail.value);
+          }
+        } catch (e) {
+          setJsonPayload(null);
+          console.log("⚠️ [JSON Payload Debug] p-4-json-payload flag evaluation failed:", e);
+        }
+        
+        const detail = ldClient.variationDetail('multi-context-homepage-access-card', 'basic-access');
+        const value = typeof detail.value === 'string' ? detail.value : String(detail.value ?? 'basic-access');
+        setAccessCardValue(value);
+        console.log("🚩 [Flag Debug] After identify — access card:", value);
+      });
+      return;
+    }
+
+    // Handle device contexts (Windows, Mac, Mobile)
+    // LaunchDarkly flag p-3-device-routing returns: 1=Windows, 2=Mac, 3=Mobile
+    if (liveSelectedContext === "windows" || liveSelectedContext === "mac" || liveSelectedContext === "mobile") {
+      const deviceName = liveSelectedContext === "windows" ? "Windows" : liveSelectedContext === "mac" ? "Mac" : "Mobile";
+      const osName = liveSelectedContext; // "windows", "mac", or "mobile" (lowercase)
+      
+      multiContext.user = {
+        key: `user-${liveSelectedContext}`,
+        name: `${deviceName} User`,
+        email: `user@${liveSelectedContext}.com`,
+      };
+      multiContext.device = {
+        key: `device-${liveSelectedContext}`,
+        name: osName, // lowercase: "windows", "mac", or "mobile"
+        os: osName, // lowercase: "windows", "mac", or "mobile"
+      };
+      
+      console.log("🔄 [Context Debug] Updating LaunchDarkly context with device");
+      console.log("👤 [Context Debug] Selected Device:", liveSelectedContext);
+      console.log("📋 [Context Debug] Full Context:", JSON.stringify(multiContext, null, 2));
+      
+      ldClient.identify(multiContext).then(() => {
+        // Wait a bit for LaunchDarkly to fully evaluate flags after context change
+        setTimeout(() => {
+          // Get device context value from LaunchDarkly flag evaluation (returns 1, 2, or 3)
+          // 1=Windows, 2=Mac, 3=Mobile
+          try {
+            const deviceFlagDetail = ldClient.variationDetail('p-3-device-routing', null);
+            console.log("🚩 [Device Debug] Full p-3-device-routing flag detail:", deviceFlagDetail);
+            console.log("🚩 [Device Debug] Flag value:", deviceFlagDetail.value, "Type:", typeof deviceFlagDetail.value);
+            
+            // Handle both number and object with value property
+            let deviceValue: number | null = null;
+            if (typeof deviceFlagDetail.value === 'number') {
+              deviceValue = deviceFlagDetail.value;
+            } else if (typeof deviceFlagDetail.value === 'object' && deviceFlagDetail.value !== null && 'value' in deviceFlagDetail.value) {
+              deviceValue = typeof (deviceFlagDetail.value as any).value === 'number' ? (deviceFlagDetail.value as any).value : null;
+            }
+            
+            if (deviceValue !== null && (deviceValue === 1 || deviceValue === 2 || deviceValue === 3)) {
+              setDeviceContext(deviceValue);
+              console.log("✅ [Device Debug] Device context set to:", deviceValue);
+            } else {
+              // If LaunchDarkly doesn't return 1, 2, or 3, clear device context
+              setDeviceContext(null);
+              console.log("⚠️ [Device Debug] LaunchDarkly returned invalid device value:", deviceFlagDetail.value, "Extracted:", deviceValue);
+            }
+          } catch (e) {
+            // If flag doesn't exist or evaluation fails, clear device context
+            setDeviceContext(null);
+            console.log("⚠️ [Device Debug] p-3-device-routing flag evaluation failed:", e);
+          }
+          
+          const detail = ldClient.variationDetail('multi-context-homepage-access-card', 'basic-access');
+          const value = typeof detail.value === 'string' ? detail.value : String(detail.value ?? 'basic-access');
+          setAccessCardValue(value);
+          console.log("🚩 [Flag Debug] After identify — access card:", value);
+        }, 300); // Wait 300ms for LaunchDarkly to evaluate flags
+      });
+      return;
+    }
+
+    // User context (only for anna, jesse, farengar - device contexts handled above)
+    // Clear device context and JSON payload immediately when user/org context is selected
+    setDeviceContext(null);
+    setJsonPayload(null);
+    
+    const userOrgData = personaData as { city: string; organization: string; jobFunction: string };
     if (liveSelectedContext === "anna") {
       multiContext.user = {
         key: "user-key-123abc",
         name: "Anna",
         email: "anna@globalhealth.com",
-        jobFunction: personaData.jobFunction,
+        jobFunction: userOrgData.jobFunction,
       };
       multiContext.organization = {
         key: "org-key-123abc",
-        name: personaData.organization,
+        name: userOrgData.organization,
         address: {
           street: "123 Main Street",
-          city: personaData.city,
+          city: userOrgData.city,
         },
       };
     } else if (liveSelectedContext === "jesse") {
@@ -252,14 +408,14 @@ const Contexts = () => {
         key: "user-key-456def",
         name: "Jesse",
         email: "jesse@globalhealth.com",
-        jobFunction: personaData.jobFunction,
+        jobFunction: userOrgData.jobFunction,
       };
       multiContext.organization = {
         key: "org-key-123abc",
-        name: personaData.organization,
+        name: userOrgData.organization,
         address: {
           street: "123 Main Street",
-          city: personaData.city,
+          city: userOrgData.city,
         },
       };
     } else if (liveSelectedContext === "farengar") {
@@ -267,14 +423,14 @@ const Contexts = () => {
         key: "farengar-secret-fire",
         name: "Farengar Secret-Fire",
         email: "farengar@dragonsreach.com",
-        jobFunction: personaData.jobFunction,
+        jobFunction: userOrgData.jobFunction,
       };
       multiContext.organization = {
         key: "whiterun-hold",
-        name: personaData.organization,
+        name: userOrgData.organization,
         address: {
           street: "1 Cloud District Way",
-          city: personaData.city,
+          city: userOrgData.city,
         },
       };
     }
@@ -284,26 +440,109 @@ const Contexts = () => {
     console.log("👤 [Context Debug] Selected Persona:", liveSelectedContext);
     console.log("📋 [Context Debug] Full Context:", JSON.stringify(multiContext, null, 2));
     console.log("📊 [Context Debug] Context Attributes:", {
-      jobFunction: personaData.jobFunction,
-      organization: personaData.organization,
-      city: personaData.city,
+      jobFunction: userOrgData.jobFunction,
+      organization: userOrgData.organization,
+      city: userOrgData.city,
     });
     
-    ldClient.identify(multiContext).then(() => {
-      const detail = ldClient.variationDetail('multi-context-homepage-access-card', 'basic-access');
-      const value = typeof detail.value === 'string' ? detail.value : String(detail.value ?? 'basic-access');
-      setAccessCardValue(value);
-      console.log("🚩 [Flag Debug] After identify — access card:", value, detail);
-    });
+      ldClient.identify(multiContext).then(() => {
+        // Clear device context and JSON payload for user/org contexts
+        setDeviceContext(null);
+        setJsonPayload(null);
+        
+        // Verify LaunchDarkly doesn't return device context
+        try {
+          const deviceFlagDetail = ldClient.variationDetail('p-3-device-routing', null);
+          if (typeof deviceFlagDetail.value === 'number' && (deviceFlagDetail.value === 1 || deviceFlagDetail.value === 2 || deviceFlagDetail.value === 3)) {
+            // If LaunchDarkly still returns device context, clear it
+            setDeviceContext(null);
+            console.log("⚠️ [Device Debug] LaunchDarkly returned device context for user/org context, clearing it");
+          }
+        } catch (e) {
+          // Flag might not exist, which is fine
+        }
+        
+        const detail = ldClient.variationDetail('multi-context-homepage-access-card', 'basic-access');
+        const value = typeof detail.value === 'string' ? detail.value : String(detail.value ?? 'basic-access');
+        setAccessCardValue(value);
+        console.log("🚩 [Flag Debug] After identify — access card:", value, detail);
+      });
   }, [ldClient, liveSelectedContext, user]);
 
-  // Sync access card from LD when client is ready (e.g. initial load or flag changes from outside)
+  // Sync access card from LD when client is ready (initial load only)
+  // Don't sync on flag changes to avoid overriding values set by identify()
   useEffect(() => {
     if (!ldClient) return;
     const detail = ldClient.variationDetail('multi-context-homepage-access-card', 'basic-access');
     const value = typeof detail.value === 'string' ? detail.value : String(detail.value ?? 'basic-access');
     setAccessCardValue(value);
-  }, [ldClient, flags['multi-context-homepage-access-card']]);
+  }, [ldClient]); // Only run when ldClient becomes available, not on flag changes
+
+  // Sync device context from LaunchDarkly flag evaluation (1=Windows, 2=Mac, 3=Mobile)
+  // Only set deviceContext if LaunchDarkly returns exactly 1, 2, or 3
+  // Don't sync on flag changes to avoid overriding values set by identify()
+  // Only sync on initial load, and immediately clear if user/org context is selected
+  useEffect(() => {
+    if (!ldClient) return;
+    
+    // Immediately clear device context if user/org context is selected
+    if (liveSelectedContext === "anna" || liveSelectedContext === "jesse" || liveSelectedContext === "farengar" || 
+        liveSelectedContext === "jsonPayload1" || liveSelectedContext === "jsonPayload2" || !liveSelectedContext) {
+      setDeviceContext(null);
+      return;
+    }
+    
+    // Don't sync if a device user is currently selected (let identify() handle it)
+    if (liveSelectedContext === "windows" || liveSelectedContext === "mac" || liveSelectedContext === "mobile") {
+      return;
+    }
+    
+    try {
+      const deviceFlagDetail = ldClient.variationDetail('p-3-device-routing', null);
+      // Only set deviceContext if LaunchDarkly returns exactly 1, 2, or 3
+      if (typeof deviceFlagDetail.value === 'number' && (deviceFlagDetail.value === 1 || deviceFlagDetail.value === 2 || deviceFlagDetail.value === 3)) {
+        setDeviceContext(deviceFlagDetail.value);
+        setJsonPayload(null); // Clear JSON payload when device context is set
+        console.log("🔄 [Device Sync] Device context updated from LaunchDarkly:", deviceFlagDetail.value);
+      } else {
+        setDeviceContext(null);
+      }
+    } catch (e) {
+      // Flag might not exist or evaluation failed - clear device context
+      setDeviceContext(null);
+    }
+  }, [ldClient, liveSelectedContext]); // Include liveSelectedContext to check context type
+
+  // Sync JSON payload from LaunchDarkly flag evaluation
+  // Don't sync on flag changes to avoid overriding values set by identify()
+  useEffect(() => {
+    if (!ldClient) return;
+    try {
+      const jsonPayloadDetail = ldClient.variationDetail('p-4-json-payload', null);
+      if (jsonPayloadDetail.value && typeof jsonPayloadDetail.value === 'object') {
+        const payload = jsonPayloadDetail.value as {
+          ctaText?: string;
+          enabled?: boolean;
+          showBanner?: boolean;
+          variant?: string;
+        };
+        setJsonPayload({
+          ctaText: payload.ctaText || '',
+          enabled: payload.enabled ?? false,
+          showBanner: payload.showBanner ?? false,
+          variant: payload.variant || '',
+        });
+        setDeviceContext(null); // Clear device context when JSON payload is set
+        console.log("🔄 [JSON Payload Sync] JSON payload updated from LaunchDarkly:", payload);
+      } else {
+        // Clear JSON payload if LaunchDarkly returns invalid value
+        setJsonPayload(null);
+      }
+    } catch (e) {
+      // Flag might not exist or evaluation failed - clear JSON payload
+      setJsonPayload(null);
+    }
+  }, [ldClient]); // Only run when ldClient becomes available, not on flag changes
 
   // Log all flags when they change
   useEffect(() => {
@@ -1177,14 +1416,359 @@ const Contexts = () => {
                   </CollapsibleContent>
                 </Collapsible>
               </div>
+
+              {/* Windows User */}
+              <div
+                className={`p-4 rounded-lg border-2 transition-colors ${
+                  liveSelectedContext === "windows"
+                    ? "bg-green-50 border-green-500 dark:bg-green-950 dark:border-green-600"
+                    : "bg-card border-border"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Windows</h3>
+                  <Button
+                    size="sm"
+                    variant={liveSelectedContext === "windows" ? "default" : "outline"}
+                    onClick={() => setLiveSelectedContext(liveSelectedContext === "windows" ? null : "windows")}
+                  >
+                    {liveSelectedContext === "windows" ? "Selected" : "Select"}
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="live-windows-dropdown" className="text-sm">
+                    Show Details
+                  </Label>
+                  <Switch
+                    id="live-windows-dropdown"
+                    checked={liveShowDropdowns.windows}
+                    onCheckedChange={(checked) =>
+                      setLiveShowDropdowns({ ...liveShowDropdowns, windows: checked })
+                    }
+                  />
+                </div>
+                <Collapsible open={liveShowDropdowns.windows}>
+                  <CollapsibleContent className="mt-2 space-y-2 text-sm">
+                    <div className="bg-muted p-3 rounded-md space-y-0">
+                      <div className="space-y-1 py-2 border-b">
+                        <div className="font-medium text-muted-foreground">Device:</div>
+                        <div className="pl-4">• Windows</div>
+                      </div>
+                    </div>
+                    <pre className="bg-muted p-4 rounded-md text-xs overflow-x-auto mt-2">
+                      <code>{JSON.stringify({
+                        "device": {
+                          "key": "device-windows",
+                          "name": "windows",
+                          "os": "windows"
+                        }
+                      }, null, 2)}</code>
+                    </pre>
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+
+              {/* Mac User */}
+              <div
+                className={`p-4 rounded-lg border-2 transition-colors ${
+                  liveSelectedContext === "mac"
+                    ? "bg-green-50 border-green-500 dark:bg-green-950 dark:border-green-600"
+                    : "bg-card border-border"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Mac</h3>
+                  <Button
+                    size="sm"
+                    variant={liveSelectedContext === "mac" ? "default" : "outline"}
+                    onClick={() => setLiveSelectedContext(liveSelectedContext === "mac" ? null : "mac")}
+                  >
+                    {liveSelectedContext === "mac" ? "Selected" : "Select"}
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="live-mac-dropdown" className="text-sm">
+                    Show Details
+                  </Label>
+                  <Switch
+                    id="live-mac-dropdown"
+                    checked={liveShowDropdowns.mac}
+                    onCheckedChange={(checked) =>
+                      setLiveShowDropdowns({ ...liveShowDropdowns, mac: checked })
+                    }
+                  />
+                </div>
+                <Collapsible open={liveShowDropdowns.mac}>
+                  <CollapsibleContent className="mt-2 space-y-2 text-sm">
+                    <div className="bg-muted p-3 rounded-md space-y-0">
+                      <div className="space-y-1 py-2 border-b">
+                        <div className="font-medium text-muted-foreground">Device:</div>
+                        <div className="pl-4">• Mac</div>
+                      </div>
+                    </div>
+                    <pre className="bg-muted p-4 rounded-md text-xs overflow-x-auto mt-2">
+                      <code>{JSON.stringify({
+                        "device": {
+                          "key": "device-mac",
+                          "name": "mac",
+                          "os": "mac"
+                        }
+                      }, null, 2)}</code>
+                    </pre>
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+
+              {/* Mobile User */}
+              <div
+                className={`p-4 rounded-lg border-2 transition-colors ${
+                  liveSelectedContext === "mobile"
+                    ? "bg-green-50 border-green-500 dark:bg-green-950 dark:border-green-600"
+                    : "bg-card border-border"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Mobile</h3>
+                  <Button
+                    size="sm"
+                    variant={liveSelectedContext === "mobile" ? "default" : "outline"}
+                    onClick={() => setLiveSelectedContext(liveSelectedContext === "mobile" ? null : "mobile")}
+                  >
+                    {liveSelectedContext === "mobile" ? "Selected" : "Select"}
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="live-mobile-dropdown" className="text-sm">
+                    Show Details
+                  </Label>
+                  <Switch
+                    id="live-mobile-dropdown"
+                    checked={liveShowDropdowns.mobile}
+                    onCheckedChange={(checked) =>
+                      setLiveShowDropdowns({ ...liveShowDropdowns, mobile: checked })
+                    }
+                  />
+                </div>
+                <Collapsible open={liveShowDropdowns.mobile}>
+                  <CollapsibleContent className="mt-2 space-y-2 text-sm">
+                    <div className="bg-muted p-3 rounded-md space-y-0">
+                      <div className="space-y-1 py-2 border-b">
+                        <div className="font-medium text-muted-foreground">Device:</div>
+                        <div className="pl-4">• Mobile</div>
+                      </div>
+                    </div>
+                    <pre className="bg-muted p-4 rounded-md text-xs overflow-x-auto mt-2">
+                      <code>{JSON.stringify({
+                        "device": {
+                          "key": "device-mobile",
+                          "name": "mobile",
+                          "os": "mobile"
+                        }
+                      }, null, 2)}</code>
+                    </pre>
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+
+              {/* JSON Payload User 1 */}
+              <div
+                className={`p-4 rounded-lg border-2 transition-colors ${
+                  liveSelectedContext === "jsonPayload1"
+                    ? "bg-green-50 border-green-500 dark:bg-green-950 dark:border-green-600"
+                    : "bg-card border-border"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Premium User</h3>
+                  <Button
+                    size="sm"
+                    variant={liveSelectedContext === "jsonPayload1" ? "default" : "outline"}
+                    onClick={() => setLiveSelectedContext(liveSelectedContext === "jsonPayload1" ? null : "jsonPayload1")}
+                  >
+                    {liveSelectedContext === "jsonPayload1" ? "Selected" : "Select"}
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="live-jsonPayload1-dropdown" className="text-sm">
+                    Show Details
+                  </Label>
+                  <Switch
+                    id="live-jsonPayload1-dropdown"
+                    checked={liveShowDropdowns.jsonPayload1}
+                    onCheckedChange={(checked) =>
+                      setLiveShowDropdowns({ ...liveShowDropdowns, jsonPayload1: checked })
+                    }
+                  />
+                </div>
+                <Collapsible open={liveShowDropdowns.jsonPayload1}>
+                  <CollapsibleContent className="mt-2 space-y-2 text-sm">
+                    <div className="bg-muted p-3 rounded-md space-y-0">
+                      <div className="space-y-1 py-2 border-b">
+                        <div className="font-medium text-muted-foreground">User Type:</div>
+                        <div className="pl-4">• Premium</div>
+                      </div>
+                    </div>
+                    {jsonPayload && liveSelectedContext === "jsonPayload1" && (
+                      <pre className="bg-muted p-4 rounded-md text-xs overflow-x-auto mt-2">
+                        <code>{JSON.stringify(jsonPayload, null, 2)}</code>
+                      </pre>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+
+              {/* JSON Payload User 2 */}
+              <div
+                className={`p-4 rounded-lg border-2 transition-colors ${
+                  liveSelectedContext === "jsonPayload2"
+                    ? "bg-green-50 border-green-500 dark:bg-green-950 dark:border-green-600"
+                    : "bg-card border-border"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold">Standard User</h3>
+                  <Button
+                    size="sm"
+                    variant={liveSelectedContext === "jsonPayload2" ? "default" : "outline"}
+                    onClick={() => setLiveSelectedContext(liveSelectedContext === "jsonPayload2" ? null : "jsonPayload2")}
+                  >
+                    {liveSelectedContext === "jsonPayload2" ? "Selected" : "Select"}
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between mb-2">
+                  <Label htmlFor="live-jsonPayload2-dropdown" className="text-sm">
+                    Show Details
+                  </Label>
+                  <Switch
+                    id="live-jsonPayload2-dropdown"
+                    checked={liveShowDropdowns.jsonPayload2}
+                    onCheckedChange={(checked) =>
+                      setLiveShowDropdowns({ ...liveShowDropdowns, jsonPayload2: checked })
+                    }
+                  />
+                </div>
+                <Collapsible open={liveShowDropdowns.jsonPayload2}>
+                  <CollapsibleContent className="mt-2 space-y-2 text-sm">
+                    <div className="bg-muted p-3 rounded-md space-y-0">
+                      <div className="space-y-1 py-2 border-b">
+                        <div className="font-medium text-muted-foreground">User Type:</div>
+                        <div className="pl-4">• Standard</div>
+                      </div>
+                    </div>
+                    {jsonPayload && liveSelectedContext === "jsonPayload2" && (
+                      <pre className="bg-muted p-4 rounded-md text-xs overflow-x-auto mt-2">
+                        <code>{JSON.stringify(jsonPayload, null, 2)}</code>
+                      </pre>
+                    )}
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Welcome Card - Controlled by LaunchDarkly Feature Flag */}
+        {/* Welcome Card - Shows download message for device contexts, JSON payload content, or access card for user contexts */}
         <Card className="mt-6">
           <CardContent className="pt-6">
-            {accessCardValue === 'clinical-insights' && (
+            {(deviceContext === 1 || deviceContext === 2 || deviceContext === 3) ? (
+              /* Download Message - Shows only when LaunchDarkly returns 1, 2, or 3 (1=Windows, 2=Mac, 3=Mobile) */
+              (() => {
+                const deviceName = deviceContext === 1 ? "Windows" : deviceContext === 2 ? "Mac" : "Mobile";
+                const deviceIcon = deviceContext === 1 ? "🪟" : deviceContext === 2 ? "🍎" : "📱";
+                return (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                      <div className="text-4xl">{deviceIcon}</div>
+                      <div>
+                        <h2 className="text-2xl font-bold">Download Available</h2>
+                        <div className="mt-2 text-sm text-muted-foreground">
+                          Device: {deviceName} (Value: {deviceContext})
+                        </div>
+                      </div>
+                    </div>
+                    <Separator />
+                    <div className="space-y-4">
+                      <h3 className="text-xl font-semibold">
+                        Download for {deviceName}
+                      </h3>
+                      <p className="text-muted-foreground">
+                        Get the best experience optimized for your {deviceName} device.
+                      </p>
+                      <Button className="w-full sm:w-auto">
+                        Download for {deviceName}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })()
+            ) : jsonPayload ? (
+              /* JSON Payload Card - Shows content based on p-4-json-payload flag values */
+              <div className="space-y-4">
+                {jsonPayload.showBanner && (
+                  <div className={`p-4 rounded-lg border-2 ${
+                    jsonPayload.variant === 'new-experience' 
+                      ? 'bg-blue-50 border-blue-500 dark:bg-blue-950 dark:border-blue-600' 
+                      : 'bg-muted border-border'
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">
+                        {jsonPayload.variant === 'new-experience' ? '✨' : '📋'}
+                      </span>
+                      <div>
+                        <h3 className="font-semibold">
+                          {jsonPayload.variant === 'new-experience' ? 'New Experience Available' : 'Dashboard Access'}
+                        </h3>
+                        <p className="text-sm text-muted-foreground">
+                          {jsonPayload.variant === 'new-experience' 
+                            ? 'Try our enhanced dashboard with new features' 
+                            : 'Access your dashboard'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-center gap-4">
+                  <div className="text-4xl">
+                    {jsonPayload.variant === 'new-experience' ? '🚀' : '📊'}
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold">
+                      {jsonPayload.variant === 'new-experience' ? 'New Dashboard Experience' : 'Dashboard'}
+                    </h2>
+                    <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                      <div>Variant: {jsonPayload.variant}</div>
+                      <div>Status: {jsonPayload.enabled ? 'Enabled' : 'Disabled'}</div>
+                    </div>
+                  </div>
+                </div>
+                <Separator />
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold">
+                    {jsonPayload.variant === 'new-experience' ? '✨ Enhanced Features' : '📊 Standard Dashboard'}
+                  </h3>
+                  <p className="text-muted-foreground">
+                    {jsonPayload.variant === 'new-experience'
+                      ? 'Experience our new dashboard with improved analytics, better visualization, and enhanced user experience.'
+                      : 'Access your standard dashboard with all your essential tools and features.'}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      className="w-full sm:w-auto"
+                      disabled={!jsonPayload.enabled}
+                      variant={jsonPayload.variant === 'new-experience' ? 'default' : 'outline'}
+                    >
+                      {jsonPayload.ctaText || 'Go to Dashboard'}
+                    </Button>
+                    {!jsonPayload.enabled && (
+                      <span className="text-sm text-muted-foreground">(Currently disabled)</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Access Card - Shows based on LaunchDarkly feature flag */
+              <>
+            {accessCardValue === 'care-team-overview' && (
                     <div className="space-y-6">
                       <div className="flex items-center gap-4">
                         <div className="text-4xl">🧑‍⚕️</div>
@@ -1199,17 +1783,17 @@ const Contexts = () => {
                       </div>
                       <Separator />
                       <div className="space-y-4">
-                        <h3 className="text-xl font-semibold">🩺 Clinical Insights Enabled</h3>
+                        <h3 className="text-xl font-semibold">🧾 Care Team Overview</h3>
                         <p className="text-muted-foreground">
-                          You have access to all advanced patient analytics and clinical decision support tools for Global Health Services in Springfield.
+                          You can view your assigned patients' summaries and care plans for your Springfield facility at Global Health Services.
                         </p>
                         <Button className="w-full sm:w-auto">
-                          View Patient Dashboard
+                          View Care Plans
                         </Button>
                       </div>
                     </div>
                   )}
-            {accessCardValue === 'care-team-overview' && (
+            {accessCardValue === 'regional-clinical-access' && (
                     <div className="space-y-6">
                       <div className="flex items-center gap-4">
                         <div className="text-4xl">🧑‍⚕️</div>
@@ -1224,12 +1808,12 @@ const Contexts = () => {
                       </div>
                       <Separator />
                       <div className="space-y-4">
-                        <h3 className="text-xl font-semibold">🧾 Care Team Overview</h3>
+                        <h3 className="text-xl font-semibold">🩺 Regional Clinical Access Enabled</h3>
                         <p className="text-muted-foreground">
-                          You can view your assigned patients' summaries and care plans for your Springfield facility at Global Health Services.
+                          You have access to all advanced patient analytics and clinical decision support tools for Global Health Services in Springfield.
                         </p>
                         <Button className="w-full sm:w-auto">
-                          View Care Plans
+                          View Patient Dashboard
                         </Button>
                       </div>
                     </div>
@@ -1267,7 +1851,7 @@ const Contexts = () => {
                     </div>
                   )}
             {((accessCardValue === 'basic-access') ||
-              (accessCardValue !== 'clinical-insights' && accessCardValue !== 'care-team-overview' && accessCardValue !== 'arcane-research')) && (
+              (accessCardValue !== 'care-team-overview' && accessCardValue !== 'regional-clinical-access' && accessCardValue !== 'arcane-research')) && (
                     <div className="space-y-6">
                       <div className="flex items-center gap-4">
                         <div className="text-4xl">👤</div>
@@ -1290,6 +1874,8 @@ const Contexts = () => {
                       </div>
                     </div>
                   )}
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
