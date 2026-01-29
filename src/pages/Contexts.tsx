@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Settings } from "lucide-react";
 import { authService, type User } from "@/lib/supabase";
 import { useLDClient, useFlags } from "launchdarkly-react-client-sdk";
@@ -1876,6 +1877,81 @@ const Contexts = () => {
                   )}
               </>
             )}
+          </CardContent>
+        </Card>
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Evaluation Reasons</CardTitle>
+            <CardDescription>
+              Access detailed information about why a feature flag evaluated to a specific value
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground mb-4">
+              When you need to understand why a flag evaluated to a particular value, you can enable evaluation reasons and use the <code className="text-sm bg-muted px-1 py-0.5 rounded">variationDetail</code> method to access detailed information including the variation index and reason.
+            </p>
+            <pre className="bg-muted p-4 rounded-md text-xs overflow-x-auto mb-6">
+              <code>{`const options = { evaluationReasons: true };
+const client = LDClient.initialize('client-side-id-123abc', user, options);
+
+const detail = client.variationDetail('flag-key-123abc', false);
+
+const value = detail.value;
+const index = detail.variationIndex;
+const reason = detail.reason;`}</code>
+            </pre>
+            <div className="mt-6">
+              <h3 className="text-lg font-semibold mb-4">Flag Keys Used in This Page</h3>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Flag Key</TableHead>
+                    <TableHead>detail.value</TableHead>
+                    <TableHead>detail.variationIndex</TableHead>
+                    <TableHead>detail.reason</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <TableRow>
+                    <TableCell className="font-mono text-sm">multi-context-homepage-access-card</TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="font-mono text-xs">'basic-access'</div>
+                        <div className="font-mono text-xs">'care-team-overview'</div>
+                        <div className="font-mono text-xs">'regional-clinical-access'</div>
+                        <div className="font-mono text-xs">'arcane-research'</div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">0, 1, 2, or 3</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">Evaluation reason object explaining why this variation was selected based on context attributes</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-mono text-sm">p-3-device-routing</TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="font-mono text-xs">1 (Windows)</div>
+                        <div className="font-mono text-xs">2 (Mac)</div>
+                        <div className="font-mono text-xs">3 (Mobile)</div>
+                        <div className="font-mono text-xs">null</div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">0, 1, 2, or -1</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">Evaluation reason object explaining device routing decision based on device context (os attribute)</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="font-mono text-sm">p-4-json-payload</TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="font-mono text-xs text-wrap">{"{ ctaText: string, enabled: boolean, showBanner: boolean, variant: string }"}</div>
+                        <div className="text-xs text-muted-foreground mt-1">Example variant: 'new-experience'</div>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">0, 1, or -1</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">Evaluation reason object explaining JSON payload selection based on user type (premium/standard)</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
+            </div>
           </CardContent>
         </Card>
       </div>
