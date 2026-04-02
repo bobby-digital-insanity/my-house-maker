@@ -134,7 +134,7 @@ const Auth = () => {
       <div className="flex items-center justify-center min-h-[calc(100vh-4rem)] bg-gradient-to-br from-background via-muted/30 to-background p-4">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
-          <CardTitle className="text-3xl font-bold">DreamHome Builder</CardTitle>
+          <CardTitle className="text-3xl font-bold">ToggleHome Builder</CardTitle>
           <CardDescription>Create your account or sign in to start building</CardDescription>
         </CardHeader>
         <CardContent>

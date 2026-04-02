@@ -128,7 +128,7 @@ const Navbar = ({ user: propUser, cartCount = 0 }: NavbarProps) => {
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-2 font-semibold text-lg" onClick={handleLinkClick}>
           <Home className="h-5 w-5" />
-          <span>DreamHome Builder</span>
+          <span>ToggleHome Builder</span>
         </Link>
 
         <div ref={navRef} className="flex items-center gap-4">
