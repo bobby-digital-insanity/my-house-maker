@@ -11,7 +11,7 @@ import Navbar from "@/components/Navbar";
 import { supabase } from "@/integrations/supabase/client";
 import { authService, cartService, type User } from "@/lib/supabase";
 import { toast } from "sonner";
-import { Sparkles, Loader2, ShoppingCart } from "lucide-react";
+import { Sparkles, Loader2, ShoppingCart, UserRound } from "lucide-react";
 import { roomTypes } from "@/lib/roomData";
 
 interface Recommendation {
@@ -345,6 +345,13 @@ const AIBuilder = () => {
 
   const totalPrice = recommendations.reduce((sum, rec) => sum + rec.price, 0);
 
+  const handleContactExpert = () => {
+    if (ldClient) {
+      ldClient.track("ai-builder-contact-expert-click", { source: "ai-builder" });
+    }
+    toast.info("Thanks for your interest — a consultant will follow up soon.");
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar user={user} cartCount={cartCount} />
@@ -391,6 +398,26 @@ const AIBuilder = () => {
                 </SelectContent>
               </Select>
             </div>
+            {flags.aiBuilderContactExpert && (
+              <div className="space-y-3 rounded-lg border border-border bg-muted/40 p-4">
+                <div className="prose prose-sm dark:prose-invert max-w-none text-muted-foreground">
+                  <p className="text-sm leading-relaxed m-0">
+                    Want to talk to a <strong className="text-foreground font-medium">real consultant</strong>?
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="gap-2"
+                  onClick={handleContactExpert}
+                  disabled={loading}
+                >
+                  <UserRound className="h-4 w-4" />
+                  Contact an expert
+                </Button>
+              </div>
+            )}
             <Textarea
               placeholder="E.g., 'I want a cozy, rustic mountain retreat with a modern touch' or 'Tech-forward minimalist space perfect for remote work'"
               value={vibe}

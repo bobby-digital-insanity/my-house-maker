@@ -134,6 +134,34 @@ console.log('PremiumSupport', hasPremiumSupport);
               </div>
             </CardContent>
           </Card>
+
+          {/* Traces */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Distributed Traces</CardTitle>
+              <CardDescription>
+                Generate and view distributed traces with LaunchDarkly Observability
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="traces">Traces</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Generate distributed traces showcasing API calls and database operations
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/traces")}
+                  className="flex items-center gap-2"
+                >
+                  Open Traces
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
           
           {/* Display Preferences */}
           <Card>

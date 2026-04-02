@@ -17,6 +17,7 @@ import Checkout from "./pages/Checkout";
 import Settings from "./pages/Settings";
 import Contexts from "./pages/Contexts";
 import Metrics from "./pages/Metrics";
+import Traces from "./pages/Traces";
 import NotFound from "./pages/NotFound";
 import { authService, type User } from "@/lib/supabase";
 import { MessageCircle } from "lucide-react";
@@ -163,6 +164,7 @@ const AppContent = () => {
             <Route path="/settings" element={<Settings />} />
             <Route path="/contexts" element={<Contexts />} />
             <Route path="/metrics" element={<Metrics />} />
+            <Route path="/traces" element={<Traces />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
