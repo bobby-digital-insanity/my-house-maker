@@ -17,6 +17,25 @@ import dotenv from 'dotenv';
 // Load environment variables FIRST, before importing anything that needs them
 dotenv.config();
 
+// Initialize LaunchDarkly SDK with Observability plugin
+import { init } from '@launchdarkly/node-server-sdk';
+import { Observability } from '@launchdarkly/observability-node';
+
+const LD_SDK_KEY = process.env.LAUNCHDARKLY_SDK_KEY || 'sdk-885ef12f-bf8c-4a0d-bf70-64654e06cf8b';
+
+let ldClient = null;
+try {
+  ldClient = init(LD_SDK_KEY, {
+    plugins: [
+      new Observability(),
+    ],
+  });
+  console.log('✅ LaunchDarkly Observability initialized');
+} catch (error) {
+  console.error('❌ Failed to initialize LaunchDarkly Observability:', error.message);
+  console.warn('   Server will continue without observability');
+}
+
 import pool from './src/lib/db.js';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
@@ -263,6 +282,115 @@ app.delete('/api/cart', authenticateToken, async (req, res) => {
   }
 });
 
+// ==================== TRACES ENDPOINT ====================
+
+// Test route to verify server is working (no auth required)
+app.get('/api/traces/test', (req, res) => {
+  res.json({ 
+    message: 'Traces endpoint is working', 
+    timestamp: new Date().toISOString(),
+    routes: ['GET /api/traces/test', 'POST /api/traces/generate']
+  });
+});
+
+// Generate distributed trace with multiple spans
+app.post('/api/traces/generate', authenticateToken, async (req, res) => {
+  console.log('[Trace] POST /api/traces/generate called');
+  try {
+    const traceId = `trace-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const startTime = Date.now();
+
+    console.log(`[Trace] Starting trace generation for user ${req.user.id}, traceId: ${traceId}`);
+
+    // Span 1: Query user data (creates a database span)
+    let userResult;
+    try {
+      userResult = await pool.query(
+        'SELECT id, email, full_name FROM users WHERE id = $1',
+        [req.user.id]
+      );
+      console.log(`[Trace] User query completed, found ${userResult.rows.length} user(s)`);
+    } catch (dbError) {
+      console.error('[Trace] User query failed:', dbError);
+      throw new Error(`Database query failed: ${dbError.message}`);
+    }
+
+    // Small delay to simulate processing
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    // Span 2: Query cart items (creates another database span)
+    let cartResult;
+    try {
+      cartResult = await pool.query(
+        'SELECT id, room_type, style, price FROM cart_items WHERE user_id = $1 ORDER BY created_at DESC LIMIT 5',
+        [req.user.id]
+      );
+      console.log(`[Trace] Cart query completed, found ${cartResult.rows.length} cart item(s)`);
+    } catch (dbError) {
+      console.error('[Trace] Cart query failed:', dbError);
+      throw new Error(`Cart query failed: ${dbError.message}`);
+    }
+
+    // Small delay to simulate processing
+    await new Promise(resolve => setTimeout(resolve, 5));
+
+    // Span 3: Aggregate data (simulates business logic processing)
+    const aggregatedData = {
+      userId: req.user.id,
+      userEmail: userResult.rows[0]?.email || 'unknown',
+      cartItemCount: cartResult.rows.length,
+      totalCartValue: cartResult.rows.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0),
+      traceId: traceId,
+      timestamp: new Date().toISOString(),
+    };
+
+    // Span 4: Log trace event (creates another database span if trace_logs table exists)
+    // This will be automatically captured by LaunchDarkly observability
+    try {
+      // Try to insert into trace_logs table if it exists
+      await pool.query(
+        `INSERT INTO trace_logs (user_id, trace_id, event_type, metadata, created_at) 
+         VALUES ($1, $2, $3, $4, NOW()) 
+         ON CONFLICT DO NOTHING`,
+        [req.user.id, traceId, 'trace_generated', JSON.stringify(aggregatedData)]
+      );
+      console.log('[Trace] Trace log inserted successfully');
+    } catch (dbError) {
+      // Table might not exist, that's okay - trace is still captured by observability
+      console.log('[Trace] Note: trace_logs table may not exist, but trace is still captured:', dbError.message);
+    }
+
+    const duration = Date.now() - startTime;
+    console.log(`[Trace] Trace generation completed in ${duration}ms`);
+
+    res.json({
+      success: true,
+      traceId: traceId,
+      message: `Distributed trace generated successfully in ${duration}ms`,
+      data: {
+        user: userResult.rows[0],
+        cartItems: cartResult.rows,
+        aggregated: aggregatedData,
+        duration: duration,
+        spans: [
+          { name: 'SELECT users', duration: '~20-50ms', type: 'database' },
+          { name: 'SELECT cart_items', duration: '~15-40ms', type: 'database' },
+          { name: 'Process & Aggregate', duration: '~5-15ms', type: 'processing' },
+          { name: 'INSERT trace_log', duration: '~10-30ms', type: 'database' },
+        ],
+      },
+    });
+  } catch (error) {
+    console.error('[Trace] Trace generation error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ 
+      success: false,
+      error: 'Internal server error',
+      message: errorMessage 
+    });
+  }
+});
+
 // ==================== CHECKOUT ENDPOINT ====================
 
 app.post('/log-checkout', (req, res) => {
@@ -317,5 +445,8 @@ if (useHttps) {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
     console.log('Note: To enable HTTPS, set SSL_CERT_PATH and SSL_KEY_PATH environment variables');
+    console.log('Registered routes:');
+    console.log('  - GET  /api/traces/test');
+    console.log('  - POST /api/traces/generate');
   });
 }

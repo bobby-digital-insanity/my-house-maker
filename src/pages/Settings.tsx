@@ -106,6 +106,35 @@ console.log('PremiumSupport', hasPremiumSupport);
               </div>
             </CardContent>
           </Card>
+
+          {/* Metrics */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Metrics</CardTitle>
+              <CardDescription>
+                View and analyze application metrics
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="metrics">Metrics</Label>
+                  <p className="text-sm text-muted-foreground">
+                    View detailed metrics and analytics for the application
+                  </p>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/metrics")}
+                  className="flex items-center gap-2"
+                >
+                  Open Metrics
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+          
           {/* Display Preferences */}
           <Card>
             <CardHeader>
