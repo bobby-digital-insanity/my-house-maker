@@ -12,6 +12,7 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import fs from 'fs';
+import { performance } from 'node:perf_hooks';
 import dotenv from 'dotenv';
 
 // Load environment variables FIRST, before importing anything that needs them
@@ -19,7 +20,11 @@ dotenv.config();
 
 // Initialize LaunchDarkly SDK with Observability plugin
 import { init } from '@launchdarkly/node-server-sdk';
-import { Observability } from '@launchdarkly/observability-node';
+import { Observability, LDObserve } from '@launchdarkly/observability-node';
+import pidusage from 'pidusage';
+import pool from './src/lib/db.js';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 
 const LD_SDK_KEY = process.env.LAUNCHDARKLY_SDK_KEY || 'sdk-885ef12f-bf8c-4a0d-bf70-64654e06cf8b';
 
@@ -36,9 +41,34 @@ try {
   console.warn('   Server will continue without observability');
 }
 
-import pool from './src/lib/db.js';
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
+/** Share of one logical CPU (0–100) used by this Node process between cpuStart and now. */
+function processCpuPercentSince(cpuStart, wallStartMs) {
+  const cpuDelta = process.cpuUsage(cpuStart);
+  const wallMs = performance.now() - wallStartMs;
+  if (wallMs <= 0) return 0;
+  const cpuMs = (cpuDelta.user + cpuDelta.system) / 1000;
+  return Math.min(100, (cpuMs / wallMs) * 100);
+}
+
+function rssMemoryMb() {
+  return Math.round((process.memoryUsage().rss / (1024 * 1024)) * 100) / 100;
+}
+
+function recordCheckoutMetric(name, value, extraTags = [], correlationTags = []) {
+  try {
+    LDObserve.recordMetric({
+      name,
+      value,
+      tags: [
+        { name: 'endpoint', value: 'log-checkout' },
+        ...correlationTags,
+        ...extraTags,
+      ],
+    });
+  } catch (metricErr) {
+    console.warn(`[Checkout] LDObserve.recordMetric ${name} failed:`, metricErr?.message || metricErr);
+  }
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -53,7 +83,10 @@ app.use(express.json());
 // CORS middleware
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header(
+    'Access-Control-Allow-Headers',
+    'Content-Type, Authorization, traceparent, tracestate',
+  );
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
@@ -393,38 +426,128 @@ app.post('/api/traces/generate', authenticateToken, async (req, res) => {
 
 // ==================== CHECKOUT ENDPOINT ====================
 
-app.post('/log-checkout', (req, res) => {
-  const { totalPrice } = req.body;
+app.post('/log-checkout', async (req, res) => {
+  try {
+    await LDObserve.runWithHeaders('checkout complete', req.headers, async (span) => {
+      const wallStartMs = performance.now();
+      const cpuStart = process.cpuUsage();
 
-  console.log(`[Server] Received checkout request for: $${totalPrice}`);
+      const { totalPrice } = req.body;
 
-  if (!totalPrice) {
-    return res.status(400).json({ error: 'Total price is required' });
-  }
+      console.log(`[Server] Received checkout request for: $${totalPrice}`);
 
-  // Spawn the Node.js script as a child process
-  const scriptPath = join(__dirname, 'scripts', 'log-checkout.js');
-  const child = spawn('node', [scriptPath, totalPrice.toString()]);
+      const correlationTags = () => {
+        const ctx = span.spanContext();
+        return [
+          { name: 'trace_id', value: ctx.traceId },
+          { name: 'span_id', value: ctx.spanId },
+          { name: 'ld_span_name', value: 'checkout complete' },
+        ];
+      };
 
-  // Capture and display script output
-  child.stdout.on('data', (data) => {
-    console.log(data.toString());
-  });
+      if (!totalPrice) {
+        res.status(400).json({ error: 'Total price is required' });
+        return;
+      }
 
-  // Log any errors from the script
-  child.stderr.on('data', (data) => {
-    console.error(`Script error: ${data}`);
-  });
+      // Spawn the Node.js script as a child process
+      const scriptPath = join(__dirname, 'scripts', 'log-checkout.js');
+      const child = spawn('node', [scriptPath, totalPrice.toString()]);
+      const childPid = child.pid;
 
-  // Handle script completion
-  child.on('close', (code) => {
-    if (code !== 0) {
-      console.error(`Script exited with code ${code}`);
+      let childCpuPeak = 0;
+      let childMemMbPeak = 0;
+      let pollTimer = null;
+
+      const sampleChild = () => {
+        if (childPid == null) return;
+        pidusage(childPid)
+          .then((stats) => {
+            childCpuPeak = Math.max(childCpuPeak, stats.cpu);
+            const mb = Math.round((stats.memory / (1024 * 1024)) * 100) / 100;
+            childMemMbPeak = Math.max(childMemMbPeak, mb);
+          })
+          .catch(() => {});
+      };
+
+      sampleChild();
+      pollTimer = setInterval(sampleChild, 15);
+
+      child.on('error', (err) => {
+        if (pollTimer) clearInterval(pollTimer);
+        console.error('[Checkout] Failed to spawn log-checkout script:', err);
+      });
+
+      child.stdout.on('data', (data) => {
+        console.log(data.toString());
+      });
+
+      child.stderr.on('data', (data) => {
+        console.error(`Script error: ${data}`);
+      });
+
+      child.on('close', (code) => {
+        if (pollTimer) clearInterval(pollTimer);
+        sampleChild();
+        if (code !== 0) {
+          console.error(`Script exited with code ${code}`);
+        }
+        span.setAttribute('checkout.child_script_cpu_percent', childCpuPeak);
+        span.setAttribute('checkout.child_script_memory_mb', childMemMbPeak);
+        recordCheckoutMetric(
+          'checkout.payment.child_script_cpu_percent',
+          childCpuPeak,
+          [{ name: 'service', value: 'log-checkout-script' }],
+          correlationTags(),
+        );
+        recordCheckoutMetric(
+          'checkout.payment.child_script_memory_mb',
+          childMemMbPeak,
+          [{ name: 'service', value: 'log-checkout-script' }],
+          correlationTags(),
+        );
+      });
+
+      const cpuPercent = processCpuPercentSince(cpuStart, wallStartMs);
+      const parentMemMb = rssMemoryMb();
+
+      span.setAttribute('checkout.total_price', Number(totalPrice));
+      span.setAttribute('checkout.api_process_cpu_percent', cpuPercent);
+      span.setAttribute('checkout.api_process_memory_mb', parentMemMb);
+
+      recordCheckoutMetric(
+        'checkout.payment.process_cpu_percent',
+        cpuPercent,
+        [
+          { name: 'service', value: 'MyHouseMaker-API' },
+          { name: 'process', value: 'parent' },
+        ],
+        correlationTags(),
+      );
+      recordCheckoutMetric(
+        'checkout.payment.process_memory_mb',
+        parentMemMb,
+        [
+          { name: 'service', value: 'MyHouseMaker-API' },
+          { name: 'process', value: 'parent' },
+          { name: 'memory_type', value: 'rss' },
+        ],
+        correlationTags(),
+      );
+
+      res.json({ success: true, message: 'Checkout logged' });
+
+      await new Promise((resolve) => {
+        child.once('close', resolve);
+        child.once('error', resolve);
+      });
+    });
+  } catch (err) {
+    console.error('[Checkout] log-checkout error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error' });
     }
-  });
-
-  // Return immediately (fire and forget)
-  res.json({ success: true, message: 'Checkout logged' });
+  }
 });
 
 // HTTPS configuration
