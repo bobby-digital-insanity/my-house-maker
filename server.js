@@ -70,6 +70,8 @@ function recordCheckoutMetric(name, value, extraTags = [], correlationTags = [])
   }
 }
 
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -85,7 +87,7 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header(
     'Access-Control-Allow-Headers',
-    'Content-Type, Authorization, traceparent, tracestate',
+    'Content-Type, Authorization, traceparent, tracestate, X-Synthetic-Traffic',
   );
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') {
@@ -330,97 +332,219 @@ app.get('/api/traces/test', (req, res) => {
 app.post('/api/traces/generate', authenticateToken, async (req, res) => {
   console.log('[Trace] POST /api/traces/generate called');
   try {
-    const traceId = `trace-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const startTime = Date.now();
+    await LDObserve.runWithHeaders('trace generate', req.headers, async (span) => {
+      const otelTraceId = span.spanContext().traceId;
+      const isSyntheticTraffic = req.headers['x-synthetic-traffic'] === '1';
+      let simulation = req.body?.simulation;
+      if (
+        !isSyntheticTraffic ||
+        !['slow', 'fail', 'success'].includes(simulation)
+      ) {
+        simulation = 'success';
+      }
 
-    console.log(`[Trace] Starting trace generation for user ${req.user.id}, traceId: ${traceId}`);
+      span.setAttribute('trace.simulation', simulation);
 
-    // Span 1: Query user data (creates a database span)
-    let userResult;
-    try {
-      userResult = await pool.query(
-        'SELECT id, email, full_name FROM users WHERE id = $1',
-        [req.user.id]
+      const logForTrace = (level, msg) => {
+        const line = `[Trace][${otelTraceId}] ${msg}`;
+        if (level === 'error') console.error(line);
+        else console.log(line);
+        try {
+          LDObserve.recordLog(msg, level, undefined, undefined, {
+            'trace.id': otelTraceId,
+            'trace.simulation': simulation,
+          });
+        } catch (_) {
+          /* optional */
+        }
+      };
+
+      const slowJitter = () =>
+        simulation === 'slow' ? delay(350 + Math.random() * 1400) : delay(0);
+
+      const startTime = Date.now();
+      const traceLabel = `trace-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+      span.setAttribute('trace.business_id', traceLabel);
+
+      console.log(
+        `[Trace] Starting trace generation for user ${req.user.id}, businessId: ${traceLabel}, otelTraceId: ${otelTraceId}, simulation: ${simulation}`,
       );
-      console.log(`[Trace] User query completed, found ${userResult.rows.length} user(s)`);
-    } catch (dbError) {
-      console.error('[Trace] User query failed:', dbError);
-      throw new Error(`Database query failed: ${dbError.message}`);
-    }
 
-    // Small delay to simulate processing
-    await new Promise(resolve => setTimeout(resolve, 10));
+      await slowJitter();
+      logForTrace('info', `Trace generation started (simulation=${simulation})`);
 
-    // Span 2: Query cart items (creates another database span)
-    let cartResult;
-    try {
-      cartResult = await pool.query(
-        'SELECT id, room_type, style, price FROM cart_items WHERE user_id = $1 ORDER BY created_at DESC LIMIT 5',
-        [req.user.id]
-      );
-      console.log(`[Trace] Cart query completed, found ${cartResult.rows.length} cart item(s)`);
-    } catch (dbError) {
-      console.error('[Trace] Cart query failed:', dbError);
-      throw new Error(`Cart query failed: ${dbError.message}`);
-    }
+      let userResult;
+      try {
+        userResult = await pool.query(
+          'SELECT id, email, full_name FROM users WHERE id = $1',
+          [req.user.id],
+        );
+        logForTrace(
+          'info',
+          `User query completed, found ${userResult.rows.length} user(s)`,
+        );
+      } catch (dbError) {
+        const err =
+          dbError instanceof Error ? dbError : new Error(String(dbError));
+        console.error(`[Trace][${otelTraceId}] User query failed:`, err);
+        try {
+          LDObserve.recordError(err, undefined, undefined, {
+            'trace.id': otelTraceId,
+            stage: 'user_query',
+          });
+        } catch (_) {}
+        logForTrace('error', `User query error: ${err.message}`);
+        res.status(500).json({
+          success: false,
+          error: 'database_error',
+          message: err.message,
+          traceId: otelTraceId,
+        });
+        return;
+      }
 
-    // Small delay to simulate processing
-    await new Promise(resolve => setTimeout(resolve, 5));
+      await slowJitter();
+      await delay(simulation === 'slow' ? 50 : 10);
 
-    // Span 3: Aggregate data (simulates business logic processing)
-    const aggregatedData = {
-      userId: req.user.id,
-      userEmail: userResult.rows[0]?.email || 'unknown',
-      cartItemCount: cartResult.rows.length,
-      totalCartValue: cartResult.rows.reduce((sum, item) => sum + (parseFloat(item.price) || 0), 0),
-      traceId: traceId,
-      timestamp: new Date().toISOString(),
-    };
+      if (simulation === 'fail') {
+        await delay(200 + Math.random() * 750);
+        logForTrace(
+          'info',
+          'Cart aggregation phase — injecting simulated downstream failure',
+        );
+        const failErr = new Error(
+          'Simulated trace failure: cart aggregation service timeout',
+        );
+        console.error(
+          `[Trace][${otelTraceId}] SIMULATED_FAILURE:`,
+          failErr.message,
+        );
+        try {
+          LDObserve.recordError(failErr, undefined, undefined, {
+            'trace.id': otelTraceId,
+            'trace.simulation': 'fail',
+            simulated: 'true',
+          });
+        } catch (_) {}
+        logForTrace('error', `Transaction failed: ${failErr.message}`);
+        span.setAttribute('trace.simulated_error', true);
+        res.status(500).json({
+          success: false,
+          error: 'simulated_failure',
+          message: failErr.message,
+          traceId: otelTraceId,
+        });
+        return;
+      }
 
-    // Span 4: Log trace event (creates another database span if trace_logs table exists)
-    // This will be automatically captured by LaunchDarkly observability
-    try {
-      // Try to insert into trace_logs table if it exists
-      await pool.query(
-        `INSERT INTO trace_logs (user_id, trace_id, event_type, metadata, created_at) 
-         VALUES ($1, $2, $3, $4, NOW()) 
-         ON CONFLICT DO NOTHING`,
-        [req.user.id, traceId, 'trace_generated', JSON.stringify(aggregatedData)]
-      );
-      console.log('[Trace] Trace log inserted successfully');
-    } catch (dbError) {
-      // Table might not exist, that's okay - trace is still captured by observability
-      console.log('[Trace] Note: trace_logs table may not exist, but trace is still captured:', dbError.message);
-    }
+      let cartResult;
+      try {
+        cartResult = await pool.query(
+          'SELECT id, room_type, style, price FROM cart_items WHERE user_id = $1 ORDER BY created_at DESC LIMIT 5',
+          [req.user.id],
+        );
+        logForTrace(
+          'info',
+          `Cart query completed, found ${cartResult.rows.length} cart item(s)`,
+        );
+      } catch (dbError) {
+        const err =
+          dbError instanceof Error ? dbError : new Error(String(dbError));
+        console.error(`[Trace][${otelTraceId}] Cart query failed:`, err);
+        try {
+          LDObserve.recordError(err, undefined, undefined, {
+            'trace.id': otelTraceId,
+            stage: 'cart_query',
+          });
+        } catch (_) {}
+        logForTrace('error', `Cart query error: ${err.message}`);
+        res.status(500).json({
+          success: false,
+          error: 'database_error',
+          message: err.message,
+          traceId: otelTraceId,
+        });
+        return;
+      }
 
-    const duration = Date.now() - startTime;
-    console.log(`[Trace] Trace generation completed in ${duration}ms`);
+      await slowJitter();
+      await delay(simulation === 'slow' ? 40 : 5);
 
-    res.json({
-      success: true,
-      traceId: traceId,
-      message: `Distributed trace generated successfully in ${duration}ms`,
-      data: {
-        user: userResult.rows[0],
-        cartItems: cartResult.rows,
-        aggregated: aggregatedData,
-        duration: duration,
-        spans: [
-          { name: 'SELECT users', duration: '~20-50ms', type: 'database' },
-          { name: 'SELECT cart_items', duration: '~15-40ms', type: 'database' },
-          { name: 'Process & Aggregate', duration: '~5-15ms', type: 'processing' },
-          { name: 'INSERT trace_log', duration: '~10-30ms', type: 'database' },
-        ],
-      },
+      const aggregatedData = {
+        userId: req.user.id,
+        userEmail: userResult.rows[0]?.email || 'unknown',
+        cartItemCount: cartResult.rows.length,
+        totalCartValue: cartResult.rows.reduce(
+          (sum, item) => sum + (parseFloat(item.price) || 0),
+          0,
+        ),
+        traceId: traceLabel,
+        otelTraceId,
+        timestamp: new Date().toISOString(),
+      };
+
+      try {
+        await pool.query(
+          `INSERT INTO trace_logs (user_id, trace_id, event_type, metadata, created_at) 
+           VALUES ($1, $2, $3, $4, NOW()) 
+           ON CONFLICT DO NOTHING`,
+          [
+            req.user.id,
+            traceLabel,
+            'trace_generated',
+            JSON.stringify(aggregatedData),
+          ],
+        );
+        logForTrace('info', 'Trace log inserted successfully');
+      } catch (dbError) {
+        console.log(
+          `[Trace][${otelTraceId}] trace_logs insert note:`,
+          dbError instanceof Error ? dbError.message : dbError,
+        );
+      }
+
+      const duration = Date.now() - startTime;
+      logForTrace('info', `Trace generation completed in ${duration}ms`);
+      console.log(`[Trace] Trace generation completed in ${duration}ms`);
+
+      res.json({
+        success: true,
+        traceId: traceLabel,
+        otelTraceId,
+        message: `Distributed trace generated successfully in ${duration}ms`,
+        data: {
+          user: userResult.rows[0],
+          cartItems: cartResult.rows,
+          aggregated: aggregatedData,
+          duration,
+          simulation,
+          spans: [
+            { name: 'SELECT users', duration: '~20-50ms', type: 'database' },
+            {
+              name: 'SELECT cart_items',
+              duration: '~15-40ms',
+              type: 'database',
+            },
+            {
+              name: 'Process & Aggregate',
+              duration: '~5-15ms',
+              type: 'processing',
+            },
+            { name: 'INSERT trace_log', duration: '~10-30ms', type: 'database' },
+          ],
+        },
+      });
     });
   } catch (error) {
     console.error('[Trace] Trace generation error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    res.status(500).json({ 
-      success: false,
-      error: 'Internal server error',
-      message: errorMessage 
-    });
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error',
+        message: errorMessage,
+      });
+    }
   }
 });
 
@@ -447,6 +571,48 @@ app.post('/log-checkout', async (req, res) => {
 
       if (!totalPrice) {
         res.status(400).json({ error: 'Total price is required' });
+        return;
+      }
+
+      const isSyntheticTraffic = req.headers['x-synthetic-traffic'] === '1';
+      const simulateFailure =
+        isSyntheticTraffic && req.body?.simulateFailure === true;
+
+      if (simulateFailure) {
+        await delay(280 + Math.random() * 920);
+        const otelTraceId = span.spanContext().traceId;
+        span.setAttribute('checkout.simulated_failure', true);
+        const failErr = new Error('Simulated payment processor unavailable');
+        console.error(
+          `[Checkout][simulated] traceId=${otelTraceId} FAILURE ${failErr.message}`,
+        );
+        try {
+          LDObserve.recordLog(
+            `[Checkout] Simulated payment failure (trace ${otelTraceId})`,
+            'error',
+            undefined,
+            undefined,
+            {
+              'trace.id': otelTraceId,
+              component: 'checkout',
+              simulated: 'true',
+            },
+          );
+          LDObserve.recordError(failErr, undefined, undefined, {
+            'trace.id': otelTraceId,
+            component: 'checkout',
+            simulated: 'true',
+          });
+        } catch (_) {
+          /* observability optional */
+        }
+        if (!res.headersSent) {
+          res.status(503).json({
+            error: 'Simulated payment failure',
+            simulated: true,
+            traceId: otelTraceId,
+          });
+        }
         return;
       }
 

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,13 +6,30 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Settings, MessageCircle, ArrowRight } from "lucide-react";
+import { Settings, MessageCircle, ArrowRight, Activity, Square } from "lucide-react";
 import { authService, type User } from "@/lib/supabase";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import {
+  startSyntheticTraffic,
+  stopSyntheticTraffic,
+  isSyntheticTrafficActive,
+} from "@/lib/trafficSimulator";
+
+const TRAFFIC_DURATION_MS = 20 * 60 * 1000;
+
+function formatRemaining(ms: number) {
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return `${m}:${r.toString().padStart(2, "0")}`;
+}
 
 const SettingsPage = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
+  const [trafficRunning, setTrafficRunning] = useState(() => isSyntheticTrafficActive());
+  const [trafficRemainingMs, setTrafficRemainingMs] = useState(0);
   
   // UI Toggle States (these will be connected to feature flags later)
   const [darkMode, setDarkMode] = useState(false);
@@ -66,6 +82,38 @@ console.log('PremiumSupport', hasPremiumSupport);
     // Dispatch custom event to notify other components
     window.dispatchEvent(new Event('liveChatSupportChanged'));
   }, [showLiveChatSupport]);
+
+  useEffect(() => {
+    return () => {
+      stopSyntheticTraffic();
+    };
+  }, []);
+
+  const handleStartTraffic = () => {
+    if (isSyntheticTrafficActive()) {
+      toast.message("Synthetic traffic is already running.");
+      return;
+    }
+    startSyntheticTraffic(TRAFFIC_DURATION_MS, {
+      onStart: () => {
+        setTrafficRunning(true);
+        setTrafficRemainingMs(TRAFFIC_DURATION_MS);
+        toast.success("Synthetic traffic started — runs for 20 minutes.");
+      },
+      onStop: () => {
+        setTrafficRunning(false);
+        setTrafficRemainingMs(0);
+        toast.message("Synthetic traffic stopped.");
+      },
+      onTick: (remainingMs) => {
+        setTrafficRemainingMs(remainingMs);
+      },
+    });
+  };
+
+  const handleStopTraffic = () => {
+    stopSyntheticTraffic();
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -158,6 +206,55 @@ console.log('PremiumSupport', hasPremiumSupport);
                 >
                   Open Traces
                   <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Synthetic traffic (demo / load generation) */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                Synthetic traffic
+              </CardTitle>
+              <CardDescription>
+                Drive automated checkouts and trace requests for demos and observability. Runs for{" "}
+                <span className="font-medium text-foreground">20 minutes</span> after you start.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Checkouts hit <code className="rounded bg-muted px-1">/log-checkout</code> with
+                random cart totals several times per minute. Authenticated{" "}
+                <code className="rounded bg-muted px-1">/api/traces/generate</code> calls mix fast,
+                slow, and intentionally failing traces with linked logs and error records in
+                LaunchDarkly when you are signed in.
+              </p>
+              {trafficRunning && (
+                <p className="text-sm font-medium text-foreground">
+                  Time remaining: {formatRemaining(trafficRemainingMs)}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  onClick={handleStartTraffic}
+                  disabled={trafficRunning}
+                  className="gap-2"
+                >
+                  <Activity className="h-4 w-4" />
+                  Generate traffic
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleStopTraffic}
+                  disabled={!trafficRunning}
+                  className="gap-2"
+                >
+                  <Square className="h-4 w-4" />
+                  Stop traffic
                 </Button>
               </div>
             </CardContent>
